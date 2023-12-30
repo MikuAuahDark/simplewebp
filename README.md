@@ -12,13 +12,15 @@ SimpleWebP does:
 * Integrate easily on any C/C++ projects.
 * Decode alpha transparency. *
 * Decode lossless WebP. *
-* Passes all [libwebp-test-data](https://chromium.googlesource.com/webm/libwebp-test-data) test vectors. *
+* Passes all [`libwebp-test-data`](https://chromium.googlesource.com/webm/libwebp-test-data) test vectors. *
 
 \*: Currently not supported, but is the project goal.
 
 SimpleWebP does not:
 * Try to be the fastest WebP decoder.
-* Support animation.
+* Support encoding WebP image.
+* Support partial decoding (cropping and incremental).
+* Support animation (only support decoding first frame).
 * Support extracting EXIF/XMP metadata.
 
 Installation
