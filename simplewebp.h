@@ -948,6 +948,9 @@ static simplewebp_error simplewebp__load_extended(const simplewebp_allocator *al
 	unsigned char temp[8], handled;
 	unsigned int width, height, pwidth, pheight;
 
+	memset(&chunk, 0, sizeof(simplewebp_input));
+	memset(&alpha_input, 0, sizeof(simplewebp_input));
+
 	if (!simplewebp__seek(0, vp8x_input))
 	{
 		simplewebp_close_input(vp8x_input);
@@ -1094,6 +1097,7 @@ static simplewebp_error simplewebp__load_extended(const simplewebp_allocator *al
 		return err;
 	}
 
+	*out = result;
 	return SIMPLEWEBP_NO_ERROR;
 }
 
