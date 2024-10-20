@@ -2,7 +2,7 @@
  * @file simplewebp.h
  * @author Google Inc., Miku AuahDark
  * @brief A simple WebP decoder.
- * @version 20231226
+ * @version 20241016
  * See license at the bottom of the file.
  */
 
@@ -14,8 +14,36 @@ extern "C" {
 #endif
 
 #include <stdlib.h>
+#if defined(__cplusplus) || (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901)
+#include <stdint.h>
 
-#define SIMPLEWEBP_VERSION 20231226
+typedef uint8_t simplewebp_u8;
+typedef int8_t simplewebp_i8;
+typedef uint16_t simplewebp_u16;
+typedef int16_t simplewebp_i16;
+typedef uint32_t simplewebp_u32;
+typedef int32_t simplewebp_i32;
+typedef uint64_t simplewebp_u64;
+
+#ifdef __cplusplus
+typedef bool simplewebp_bool;
+#else
+#include <stdbool.h>
+typedef _Bool simplewebp_bool;
+#endif
+
+#else /* Yeah this must be good enough */
+typedef char simplewebp_bool;
+typedef unsigned char simplewebp_u8;
+typedef signed char simplewebp_i8;
+typedef unsigned short simplewebp_u16;
+typedef short simplewebp_i16;
+typedef unsigned int simplewebp_u32;
+typedef int simplewebp_i32;
+typedef unsigned long long simplewebp_u64;
+#endif
+
+#define SIMPLEWEBP_VERSION 20241016
 
 /**
  * @brief SimpleWebP "input stream".
@@ -51,7 +79,7 @@ typedef struct simplewebp_input
 	 * @param userdata Function-specific userdata.
 	 * @return Non-zero on success, zero on failure.
 	 */
-	int (*seek)(size_t pos, void *userdata);
+	simplewebp_bool (*seek)(size_t pos, void *userdata);
 
 	/**
 	 * @brief Function to get current "input stream" position. Stream must support this!
@@ -94,7 +122,7 @@ typedef enum simplewebp_error
 	SIMPLEWEBP_NO_ERROR = 0,
 	/** Failed to allocate memory */
 	SIMPLEWEBP_ALLOC_ERROR,
-	/** Input read error */
+	/** Input read error (such as EOF) */
 	SIMPLEWEBP_IO_ERROR,
 	/** Not a WebP image */
 	SIMPLEWEBP_NOT_WEBP_ERROR,
@@ -178,7 +206,7 @@ void simplewebp_get_dimensions(simplewebp *simplewebp, size_t *width, size_t *he
  * @param simplewebp `simplewebp` opaque handle.
  * @return 1 if lossless, 0 if lossy.
  */
-int simplewebp_is_lossless(simplewebp *simplewebp);
+simplewebp_bool simplewebp_is_lossless(simplewebp *simplewebp);
 
 /**
  * @brief Decode WebP image to raw RGBA8 pixels data.
@@ -193,8 +221,8 @@ simplewebp_error simplewebp_decode(simplewebp *simplewebp, void *buffer, void *s
  * @brief Decode WebP image to raw planar YUVA420 pixels data. Can only be used on lossy WebP image.
  * @param simplewebp `simplewebp` opaque handle.
  * @param y_buffer Block of memory with size of `width * height` bytes.
- * @param u_buffer Block of memory with size of `(width + 1) / 2 * (height + 1) / 2` bytes.
- * @param v_buffer Block of memory with size of `(width + 1) / 2 * (height + 1) / 2` bytes.
+ * @param u_buffer Block of memory with size of `((width + 1) / 2) * ((height + 1) / 2)` bytes.
+ * @param v_buffer Block of memory with size of `((width + 1) / 2) * ((height + 1) / 2)` bytes.
  * @param a_buffer Block of memory with size of `width * height` bytes.
  * @param settings Ignored. Set this to `NULL`.
  * @return simplewebp_error Error codes.
@@ -259,275 +287,275 @@ extern "C" {
 #include <assert.h>
 #include <string.h>
 
-struct simplewebp__picture_header
+struct swebp__picture_header
 {
-	unsigned short width, height;
-	unsigned char xscale, yscale, colorspace, clamp_type;
+	simplewebp_u16 width, height;
+	simplewebp_u8 xscale, yscale, colorspace, clamp_type;
 };
 
-struct simplewebp__finfo
+struct swebp__finfo
 {
-	unsigned char limit, ilevel, inner, hev_thresh;
+	simplewebp_u8 limit, ilevel, inner, hev_thresh;
 };
 
-struct simplewebp__topsmp
+struct swebp__topsmp
 {
-	unsigned char y[16], u[8], v[8];
+	simplewebp_u8 y[16], u[8], v[8];
 };
 
-struct simplewebp__mblock
+struct swebp__mblock
 {
-	unsigned char nz, nz_dc;
+	simplewebp_u8 nz, nz_dc;
 };
 
-struct simplewebp__mblockdata
+struct swebp__mblockdata
 {
-	short coeffs[384];
-	unsigned int nonzero_y, nonzero_uv;
-	unsigned char imodes[16], is_i4x4, uvmode, dither, skip, segment;
+	simplewebp_i16 coeffs[384];
+	simplewebp_u32 nonzero_y, nonzero_uv;
+	simplewebp_u8 imodes[16], is_i4x4, uvmode, dither, skip, segment;
 };
 
-typedef unsigned char simplewebp__probarray[11];
+typedef simplewebp_u8 swebp__probarray[11];
 
-struct simplewebp__bandprobas
+struct swebp__bandprobas
 {
-	simplewebp__probarray probas[3];
+	swebp__probarray probas[3];
 };
 
-struct simplewebp__proba
+struct swebp__proba
 {
-	unsigned char segments[3];
-	struct simplewebp__bandprobas bands[4][8];
-	const struct simplewebp__bandprobas *bands_ptr[4][17];
+	simplewebp_u8 segments[3];
+	struct swebp__bandprobas bands[4][8];
+	const struct swebp__bandprobas *bands_ptr[4][17];
 };
 
-struct simplewebp__frame_header
+struct swebp__frame_header
 {
-	unsigned char key_frame, profile, show;
-	unsigned int partition_length;
+	simplewebp_u8 key_frame, profile, show;
+	simplewebp_u32 partition_length;
 };
 
-struct simplewebp__filter_header
+struct swebp__filter_header
 {
-	unsigned char simple, level, sharpness, use_lf_delta;
-	int ref_lf_delta[4], mode_lf_delta[4];
+	simplewebp_u8 simple, level, sharpness, use_lf_delta;
+	simplewebp_i32 ref_lf_delta[4], mode_lf_delta[4];
 };
 
-struct simplewebp__segment_header
+struct swebp__segment_header
 {
-	unsigned char use_segment, update_map, absolute_delta;
-	char quantizer[4], filter_strength[4];
+	simplewebp_u8 use_segment, update_map, absolute_delta;
+	simplewebp_i8 quantizer[4], filter_strength[4];
 };
 
-struct simplewebp__random
+struct swebp__random
 {
-	int index1, index2, amp;
-	unsigned int tab[55];
+	simplewebp_i32 index1, index2, amp;
+	simplewebp_u32 tab[55];
 };
 
 /* Bit reader and boolean decoder */
-struct simplewebp__bitread
+struct swebp__bdec
 {
-	const unsigned char *buf, *buf_end, *buf_max;
-	unsigned int value;
-	unsigned char range, eof;
-	signed char bits;
+	const simplewebp_u8 *buf, *buf_end, *buf_max;
+	simplewebp_u32 value;
+	simplewebp_u8 range, eof;
+	simplewebp_i8 bits;
 };
 
-typedef int simplewebp__quant_t[2];
-struct simplewebp__quantmat
+typedef simplewebp_i32 swebp__quant_t[2];
+struct swebp__quantmat
 {
-	simplewebp__quant_t y1_mat, y2_mat, uv_mat;
-	int uv_quant, dither;
+	swebp__quant_t y1_mat, y2_mat, uv_mat;
+	simplewebp_i32 uv_quant, dither;
 };
 
-struct simplewebp__alpha_decoder
+struct swebp__alpha_decoder
 {
-	int method;
-	unsigned char filter_type, use_8b_decode;
+	simplewebp_i32 method;
+	simplewebp_u8 filter_type, use_8b_decode;
 };
 
-struct simplewebp__vp8_decoder
+struct swebp__vp8
 {
-	unsigned char ready;
+	simplewebp_u8 ready;
 
-	struct simplewebp__bitread br;
-	struct simplewebp__frame_header frame_header;
-	struct simplewebp__picture_header picture_header;
-	struct simplewebp__filter_header filter_header;
-	struct simplewebp__segment_header segment_header;
+	struct swebp__bdec br;
+	struct swebp__frame_header frame_header;
+	struct swebp__picture_header picture_header;
+	struct swebp__filter_header filter_header;
+	struct swebp__segment_header segment_header;
 
-	int mb_w, mb_h;
-	int tl_mb_x, tl_mb_y;
-	int br_mb_x, br_mb_y;
+	simplewebp_i32 mb_w, mb_h;
+	simplewebp_i32 tl_mb_x, tl_mb_y;
+	simplewebp_i32 br_mb_x, br_mb_y;
 
-	unsigned int nparts_minus_1;
-	struct simplewebp__bitread parts[8];
+	simplewebp_u32 nparts_minus_1;
+	struct swebp__bdec parts[8];
 
-	int dither;
-	struct simplewebp__random dither_rng;
+	simplewebp_i32 dither;
+	struct swebp__random dither_rng;
 
-	struct simplewebp__quantmat dqm[4];
+	struct swebp__quantmat dqm[4];
 
-	struct simplewebp__proba proba;
-	unsigned char use_skip_proba, skip_proba;
+	struct swebp__proba proba;
+	simplewebp_u8 use_skip_proba, skip_proba;
 
-	unsigned char *intra_t, intra_l[4];
+	simplewebp_u8 *intra_t, intra_l[4];
 
-	struct simplewebp__topsmp *yuv_t;
+	struct swebp__topsmp *yuv_t;
 
-	struct simplewebp__mblock *mb_info;
-	struct simplewebp__finfo *f_info;
-	unsigned char *yuv_b;
+	struct swebp__mblock *mb_info;
+	struct swebp__finfo *f_info;
+	simplewebp_u8 *yuv_b;
 
 	
-	unsigned char *cache_y, *cache_u, *cache_v;
-	int cache_y_stride, cache_uv_stride;
+	simplewebp_u8 *cache_y, *cache_u, *cache_v;
+	simplewebp_i32 cache_y_stride, cache_uv_stride;
 
 	
-	unsigned char* mem;
+	simplewebp_u8* mem;
 	size_t mem_size;
 
-	int mb_x, mb_y;
-	struct simplewebp__mblockdata *mb_data;
+	simplewebp_i32 mb_x, mb_y;
+	struct swebp__mblockdata *mb_data;
 
-	char filter_type;
-	struct simplewebp__finfo fstrengths[4][2];
+	simplewebp_i8 filter_type;
+	struct swebp__finfo fstrengths[4][2];
 
-	struct simplewebp__alpha_decoder *alpha_decoder;
-	const unsigned char *alpha_data;
+	struct swebp__alpha_decoder *alpha_decoder;
+	const simplewebp_u8 *alpha_data;
 	size_t alpha_data_size;
-	int is_alpha_decoded;
-	unsigned char *alpha_plane_mem, *alpha_plane;
-	const unsigned char *alpha_prev_line;
-	int alpha_dithering;
+	simplewebp_i32 is_alpha_decoded;
+	simplewebp_u8 *alpha_plane_mem, *alpha_plane;
+	const simplewebp_u8 *alpha_prev_line;
+	simplewebp_i32 alpha_dithering;
 };
 
-static const char simplewebp__longlong_must_64bit[sizeof(unsigned long long) == 8 ? 1 : -1];
+static const char swebp__longlong_must_64bit[sizeof(simplewebp_u64) == 8 ? 1 : -1];
 
-struct simplewebp__vp8l_bitread
+struct swebp__vp8l_bdec
 {
-	unsigned long long val;
-	unsigned char *buf;
+	simplewebp_u64 val;
+	simplewebp_u8 *buf;
 	size_t len, pos;
-	int bit_pos;
-	unsigned char eos;
+	simplewebp_i32 bit_pos;
+	simplewebp_u8 eos;
 };
 
-struct simplewebp__vp8l_color_cache
+struct swebp__vp8l_color_cache
 {
-	unsigned int *colors;
-	int hash_shift, hash_bits;
+	simplewebp_u32 *colors;
+	simplewebp_i32 hash_shift, hash_bits;
 };
 
-struct simplewebp__huffman_code
+struct swebp__huffman_code
 {
-	unsigned char bits;
-	unsigned short value;
+	simplewebp_u8 bits;
+	simplewebp_u16 value;
 };
 
-struct simplewebp__huffman_code_32
+struct swebp__huffman_code_32
 {
-	int bits;
-	unsigned int value;
+	simplewebp_i32 bits;
+	simplewebp_u32 value;
 };
 
-struct simplewebp__htree_group
+struct swebp__htree_group
 {
-	struct simplewebp__huffman_code *htrees[5];
-	char is_trivial_literal, is_trivial_code, use_packed_table;
-	unsigned int literal_arb;
-	struct simplewebp__huffman_code_32 packed_table[64];
+	struct swebp__huffman_code *htrees[5];
+	simplewebp_i8 is_trivial_literal, is_trivial_code, use_packed_table;
+	simplewebp_u32 literal_arb;
+	struct swebp__huffman_code_32 packed_table[64];
 };
 
-struct simplewebp__huffman_tables_segment
+struct swebp__huffman_tables_segment
 {
-	struct simplewebp__huffman_code *start, *current;
-	struct simplewebp__huffman_tables_segment *next;
-	int size;
+	struct swebp__huffman_code *start, *current;
+	struct swebp__huffman_tables_segment *next;
+	simplewebp_i32 size;
 };
 
-struct simplewebp__huffman_tables
+struct swebp__huffman_tables
 {
-	struct simplewebp__huffman_tables_segment root, *current;
+	struct swebp__huffman_tables_segment root, *current;
 };
 
-struct simplewebp__vp8l_metadata
+struct swebp__vp8l_metadata
 {
-	int color_cache_size;
-	struct simplewebp__vp8l_color_cache color_cache, saved_color_cache;
+	simplewebp_i32 color_cache_size;
+	struct swebp__vp8l_color_cache color_cache, saved_color_cache;
 
-	int huffman_mask, huffman_subsample_bits, huffman_xsize;
-	unsigned int *huffman_image;
-	int hum_htree_groups;
-	struct simplewebp__htree_group *htree_groups;
-	struct simplewebp__huffman_tables huffman_tables;
+	simplewebp_i32 huffman_mask, huffman_subsample_bits, huffman_xsize;
+	simplewebp_u32 *huffman_image;
+	simplewebp_i32 hum_htree_groups;
+	struct swebp__htree_group *htree_groups;
+	struct swebp__huffman_tables huffman_tables;
 };
 
-struct simplewebp__vp8l_transform
+struct swebp__vp8l_transform
 {
 	/* Type is: predictor (0), x-color (1), subgreen (2), and colorindex (3) */
-	int type;
-	int bits, xsize, ysize;
-	unsigned int *data;
+	simplewebp_i32 type;
+	simplewebp_i32 bits, xsize, ysize;
+	simplewebp_u32 *data;
 };
 
-struct simplewebp__rescaler
+struct swebp__rescaler
 {
-	unsigned char x_expand, y_expand;
-	int num_channels;
-	unsigned int fx_scale;
-	unsigned int fy_scale;
-	unsigned int fxy_scale;
-	int y_accum;
-	int y_add, y_sub;
-	int x_add, x_sub;
-	int src_width, src_height;
-	int dst_width, dst_height;
-	int src_y, dst_y;
-	unsigned char* dst;
-	int dst_stride;
-	unsigned int *irow, *frow;
+	simplewebp_u8* dst;
+	simplewebp_u32 *irow, *frow;
+	simplewebp_i32 num_channels;
+	simplewebp_u32 fx_scale;
+	simplewebp_u32 fy_scale;
+	simplewebp_u32 fxy_scale;
+	simplewebp_i32 y_accum;
+	simplewebp_i32 y_add, y_sub;
+	simplewebp_i32 x_add, x_sub;
+	simplewebp_i32 src_width, src_height;
+	simplewebp_i32 dst_width, dst_height;
+	simplewebp_i32 src_y, dst_y;
+	simplewebp_i32 dst_stride;
+	simplewebp_u8 x_expand, y_expand;
 };
 
-struct simplewebp__vp8l_decoder
+struct swebp__vp8l_decoder
 {
-	unsigned int *pixels, *argb_cache;
-	struct simplewebp__vp8l_bitread br, saved_br;
-	int saved_last_pixel;
+	simplewebp_u32 *pixels, *argb_cache;
+	struct swebp__vp8l_bdec br, saved_br;
+	simplewebp_i32 saved_last_pixel;
 
-	unsigned int width, height;
-	int last_row, last_pixel, last_out_row;
+	simplewebp_u32 width, height;
+	simplewebp_i32 last_row, last_pixel, last_out_row;
 
-	struct simplewebp__vp8l_metadata header;
+	struct swebp__vp8l_metadata header;
 
-	int next_transform;
-	struct simplewebp__vp8l_transform transforms[4];
-	unsigned int transforms_seen;
+	simplewebp_i32 next_transform;
+	struct swebp__vp8l_transform transforms[4];
+	simplewebp_u32 transforms_seen;
 
-	unsigned char *rescaler_mem;
-	struct simplewebp__rescaler rescaler;
+	simplewebp_u8 *rescaler_mem;
+	struct swebp__rescaler rescaler;
 };
 
-union simplewebp__decoder_list
+union swebp__decoder_list
 {
-	struct simplewebp__vp8_decoder vp8;
-	struct simplewebp__vp8l_decoder vp8l;
+	struct swebp__vp8 vp8;
+	struct swebp__vp8l_decoder vp8l;
 };
 
-struct simplewebp__yuvdst
+struct swebp__yuvdst
 {
-	unsigned char *y, *u, *v, *a;
+	simplewebp_u8 *y, *u, *v, *a;
 };
 
 struct simplewebp
 {
 	simplewebp_input input, riff_input, vp8_input, vp8x_input, alph_input;
 	simplewebp_allocator allocator;
-	struct simplewebp__alpha_decoder alpha_decoder;
+	struct swebp__alpha_decoder alpha_decoder;
 
-	unsigned char webp_type; /* Simple lossy (0), Lossless (1) */
-	union simplewebp__decoder_list decoder;
+	simplewebp_u8 webp_type; /* Simple lossy (0), Lossless (1) */
+	union swebp__decoder_list decoder;
 };
 
 struct simplewebp_memoryinput_data
@@ -553,7 +581,7 @@ const char *simplewebp_get_error_text(simplewebp_error error)
 		case SIMPLEWEBP_ALLOC_ERROR:
 			return "Failed to allocate memory";
 		case SIMPLEWEBP_IO_ERROR:
-			return "Input read error";
+			return "Input read error (such as EOF)";
 		case SIMPLEWEBP_NOT_WEBP_ERROR:
 			return "Not a WebP image";
 		case SIMPLEWEBP_CORRUPT_ERROR:
@@ -567,7 +595,7 @@ const char *simplewebp_get_error_text(simplewebp_error error)
 	}
 }
 
-static size_t simplewebp__memoryinput_read(size_t size, void *dest, void *userdata)
+static size_t swebp__memoryinput_read(size_t size, void *dest, void *userdata)
 {
 	struct simplewebp_memoryinput_data *input_data;
 	size_t nextpos, readed;
@@ -592,7 +620,7 @@ static size_t simplewebp__memoryinput_read(size_t size, void *dest, void *userda
 	return readed;
 }
 
-static int simplewebp__memoryinput_seek(size_t pos, void *userdata)
+static simplewebp_bool swebp__memoryinput_seek(size_t pos, void *userdata)
 {
 	struct simplewebp_memoryinput_data *input_data = (struct simplewebp_memoryinput_data *) userdata;
 
@@ -604,13 +632,13 @@ static int simplewebp__memoryinput_seek(size_t pos, void *userdata)
 	return 1;
 }
 
-static void simplewebp__memoryinput_close(void *userdata)
+static void swebp__memoryinput_close(void *userdata)
 {
 	struct simplewebp_memoryinput_data *input_data = (struct simplewebp_memoryinput_data *) userdata;
 	input_data->allocator.free(input_data);
 }
 
-static size_t simplewebp__memoryinput_tell(void *userdata)
+static size_t swebp__memoryinput_tell(void *userdata)
 {
 	struct simplewebp_memoryinput_data *input_data = (struct simplewebp_memoryinput_data *) userdata;
 	return input_data->pos;
@@ -632,10 +660,10 @@ simplewebp_error simplewebp_input_from_memory(void *data, size_t size, simpleweb
 	input_data->size = size;
 	input_data->pos = 0;
 	out->userdata = input_data;
-	out->read = simplewebp__memoryinput_read;
-	out->seek = simplewebp__memoryinput_seek;
-	out->tell = simplewebp__memoryinput_tell;
-	out->close = simplewebp__memoryinput_close;
+	out->read = swebp__memoryinput_read;
+	out->seek = swebp__memoryinput_seek;
+	out->tell = swebp__memoryinput_tell;
+	out->close = swebp__memoryinput_close;
 	return SIMPLEWEBP_NO_ERROR;
 }
 
@@ -647,50 +675,50 @@ struct simplewebp_input_proxy
 	size_t start, length;
 };
 
-static int simplewebp__seek(size_t pos, simplewebp_input *input)
+static simplewebp_bool swebp__seek(size_t pos, simplewebp_input *input)
 {
 	return input->seek(pos, input->userdata);
 }
 
-static size_t simplewebp__read(size_t size, void *dest, simplewebp_input *input)
+static size_t swebp__read(size_t size, void *dest, simplewebp_input *input)
 {
 	return input->read(size, dest, input->userdata);
 }
 
-static int simplewebp__read2(size_t size, void *dest, simplewebp_input *input)
+static simplewebp_bool swebp__read2(size_t size, void *dest, simplewebp_input *input)
 {
-	return simplewebp__read(size, dest, input) == size;
+	return swebp__read(size, dest, input) == size;
 }
 
-static size_t simplewebp__tell(simplewebp_input *input)
+static size_t swebp__tell(simplewebp_input *input)
 {
 	return input->tell(input->userdata);
 }
 
-static size_t simplewebp__proxy_tell(void *userdata)
+static size_t swebp__proxy_tell(void *userdata)
 {
 	struct simplewebp_input_proxy *proxy;
 	size_t pos;
 
 	proxy = (struct simplewebp_input_proxy *) userdata;
-	pos = simplewebp__tell(&proxy->input);
+	pos = swebp__tell(&proxy->input);
 
 	if (pos < proxy->start)
 	{
-		simplewebp__seek(proxy->start, &proxy->input);
+		swebp__seek(proxy->start, &proxy->input);
 		pos = proxy->start;
 	}
 
 	return pos - proxy->start;
 }
 
-static size_t simplewebp__proxy_read(size_t size, void *dest, void *userdata)
+static size_t swebp__proxy_read(size_t size, void *dest, void *userdata)
 {
 	struct simplewebp_input_proxy *proxy;
 	size_t pos, nextpos, readed;
 
 	proxy = (struct simplewebp_input_proxy *) userdata;
-	pos = simplewebp__proxy_tell(userdata);
+	pos = swebp__proxy_tell(userdata);
 	
 	nextpos = pos + size;
 
@@ -703,34 +731,34 @@ static size_t simplewebp__proxy_read(size_t size, void *dest, void *userdata)
 		readed = size;
 
 	if (readed > 0)
-		readed = simplewebp__read(readed, dest, &proxy->input);
+		readed = swebp__read(readed, dest, &proxy->input);
 
 	return readed;
 }
 
-static int simplewebp__proxy_seek(size_t pos, void *userdata)
+static simplewebp_bool swebp__proxy_seek(size_t pos, void *userdata)
 {
 	struct simplewebp_input_proxy *proxy = (struct simplewebp_input_proxy *) userdata;
 
 	if (pos > proxy->length)
 		pos = proxy->length;
 
-	return simplewebp__seek(pos + proxy->start, &proxy->input);
+	return swebp__seek(pos + proxy->start, &proxy->input);
 }
 
-static void simplewebp__proxy_close(void *userdata)
+static void swebp__proxy_close(void *userdata)
 {
 	struct simplewebp_input_proxy *proxy = (struct simplewebp_input_proxy *) userdata;
 	proxy->allocator.free(proxy);
 }
 
-static size_t simplewebp__proxy_size(void *userdata)
+static size_t swebp__proxy_size(void *userdata)
 {
 	struct simplewebp_input_proxy *proxy = (struct simplewebp_input_proxy *) userdata;
 	return proxy->length;
 }
 
-static simplewebp_error simplewebp__proxy_create(const simplewebp_allocator *allocator, simplewebp_input *input, simplewebp_input *out, size_t start, size_t length)
+static simplewebp_error swebp__proxy_create(const simplewebp_allocator *allocator, simplewebp_input *input, simplewebp_input *out, size_t start, size_t length)
 {
 	struct simplewebp_input_proxy *proxy = (struct simplewebp_input_proxy *) allocator->alloc(sizeof(struct simplewebp_input_proxy));
 	if (proxy == NULL)
@@ -741,10 +769,10 @@ static simplewebp_error simplewebp__proxy_create(const simplewebp_allocator *all
 	proxy->start = start;
 	proxy->length = length;
 	out->userdata = proxy;
-	out->read = simplewebp__proxy_read;
-	out->seek = simplewebp__proxy_seek;
-	out->tell = simplewebp__proxy_tell;
-	out->close = simplewebp__proxy_close;
+	out->read = swebp__proxy_read;
+	out->seek = swebp__proxy_seek;
+	out->tell = swebp__proxy_tell;
+	out->close = swebp__proxy_close;
 	return SIMPLEWEBP_NO_ERROR;
 }
 
@@ -754,52 +782,52 @@ void simplewebp_close_input(simplewebp_input *input)
 	input->userdata = NULL;
 }
 
-static unsigned int simplewebp__to_uint32(const unsigned char *buf)
+static simplewebp_u32 swebp__to_uint32(const simplewebp_u8 *buf)
 {
-	return buf[0] | (((unsigned int) buf[1]) << 8) | (((unsigned int) buf[2]) << 16) | (((unsigned int) buf[3]) << 24);
+	return buf[0] | (((simplewebp_u32) buf[1]) << 8) | (((simplewebp_u32) buf[2]) << 16) | (((simplewebp_u32) buf[3]) << 24);
 }
 
-static simplewebp_error simplewebp__get_input_chunk_4cc(const simplewebp_allocator *allocator, simplewebp_input *input, simplewebp_input *outproxy, void *fourcc)
+static simplewebp_error swebp__get_input_chunk_4cc(const simplewebp_allocator *allocator, simplewebp_input *input, simplewebp_input *outproxy, void *fourcc)
 {
-	unsigned char size[4];
+	simplewebp_u8 size[4];
 	size_t chunk_size;
 
-	if (!simplewebp__read2(4, fourcc, input))
+	if (!swebp__read2(4, fourcc, input))
 		return SIMPLEWEBP_IO_ERROR;
-	if (!simplewebp__read2(4, size, input))
+	if (!swebp__read2(4, size, input))
 		return SIMPLEWEBP_IO_ERROR;
 
-	chunk_size = simplewebp__to_uint32(size);
-	return simplewebp__proxy_create(allocator, input, outproxy, simplewebp__tell(input), chunk_size);
+	chunk_size = swebp__to_uint32(size);
+	return swebp__proxy_create(allocator, input, outproxy, swebp__tell(input), chunk_size);
 }
 
-static unsigned short simplewebp__to_uint16(const unsigned char *buf)
+static simplewebp_u16 swebp__to_uint16(const simplewebp_u8 *buf)
 {
-	return buf[0] | (((unsigned short) buf[1]) << 8);
+	return buf[0] | (((simplewebp_u16) buf[1]) << 8);
 }
 
-static simplewebp_error simplewebp__load_lossy(const simplewebp_allocator *allocator, simplewebp_input *input, simplewebp_input *riff_input, simplewebp_input *vp8_input, simplewebp **out)
+static simplewebp_error swebp__load_lossy(const simplewebp_allocator *allocator, simplewebp_input *input, simplewebp_input *riff_input, simplewebp_input *vp8_input, simplewebp **out)
 {
-	unsigned char temp[8], profile;
-	unsigned int frametag, partition_size;
-	unsigned short width, height;
+	simplewebp_u8 temp[8], profile;
+	simplewebp_u32 frametag, partition_size;
+	simplewebp_u16 width, height;
 	simplewebp *result;
 
-	if (!simplewebp__seek(0, vp8_input))
+	if (!swebp__seek(0, vp8_input))
 	{
 		simplewebp_close_input(vp8_input);
 		simplewebp_close_input(riff_input);
 		return SIMPLEWEBP_IO_ERROR;
 	}
 
-	if (!simplewebp__read2(3, temp, vp8_input))
+	if (!swebp__read2(3, temp, vp8_input))
 	{
 		simplewebp_close_input(vp8_input);
 		simplewebp_close_input(riff_input);
 		return SIMPLEWEBP_IO_ERROR;
 	}
 
-	frametag = temp[0] | (((unsigned int) temp[1]) << 8) | (((unsigned int) temp[2]) << 16);
+	frametag = temp[0] | (((simplewebp_u32) temp[1]) << 8) | (((simplewebp_u32) temp[2]) << 16);
 	if (frametag & 1)
 	{
 		/* Intraframe in SimpleWebP? Nope */
@@ -818,7 +846,7 @@ static simplewebp_error simplewebp__load_lossy(const simplewebp_allocator *alloc
 	}
 
 	partition_size = frametag >> 5;
-	if (partition_size >= simplewebp__proxy_size(vp8_input->userdata))
+	if (partition_size >= swebp__proxy_size(vp8_input->userdata))
 	{
 		/* Inconsistent data */
 		simplewebp_close_input(vp8_input);
@@ -826,7 +854,7 @@ static simplewebp_error simplewebp__load_lossy(const simplewebp_allocator *alloc
 		return SIMPLEWEBP_CORRUPT_ERROR;
 	}
 
-	if (!simplewebp__read2(7, temp, vp8_input))
+	if (!swebp__read2(7, temp, vp8_input))
 	{
 		simplewebp_close_input(vp8_input);
 		simplewebp_close_input(riff_input);
@@ -840,8 +868,8 @@ static simplewebp_error simplewebp__load_lossy(const simplewebp_allocator *alloc
 		return SIMPLEWEBP_CORRUPT_ERROR;
 	}
 
-	width = simplewebp__to_uint16(temp + 3);
-	height = simplewebp__to_uint16(temp + 5);
+	width = swebp__to_uint16(temp + 3);
+	height = swebp__to_uint16(temp + 5);
 
 	result = (simplewebp *) allocator->alloc(sizeof(simplewebp));
 	if (result == NULL)
@@ -857,31 +885,31 @@ static simplewebp_error simplewebp__load_lossy(const simplewebp_allocator *alloc
 	result->vp8_input = *vp8_input;
 	result->allocator = *allocator;
 	result->webp_type = 0;
-	memset(&result->decoder.vp8, 0, sizeof(struct simplewebp__vp8_decoder));
+	memset(&result->decoder.vp8, 0, sizeof(struct swebp__vp8));
 	result->decoder.vp8.picture_header.width = width & 0x3FFF;
 	result->decoder.vp8.picture_header.height = height & 0x3FFF;
-	result->decoder.vp8.picture_header.xscale = (unsigned char) (width >> 14);
-	result->decoder.vp8.picture_header.yscale = (unsigned char) (height >> 14);
+	result->decoder.vp8.picture_header.xscale = (simplewebp_u8) (width >> 14);
+	result->decoder.vp8.picture_header.yscale = (simplewebp_u8) (height >> 14);
 	result->decoder.vp8.frame_header.partition_length = partition_size;
 	*out = result;
 
 	return SIMPLEWEBP_NO_ERROR;
 }
 
-static simplewebp_error simplewebp__load_lossless(const simplewebp_allocator *allocator, simplewebp_input *input, simplewebp_input *riff_input, simplewebp_input *vp8_input, simplewebp **out)
+static simplewebp_error swebp__load_lossless(const simplewebp_allocator *allocator, simplewebp_input *input, simplewebp_input *riff_input, simplewebp_input *vp8_input, simplewebp **out)
 {
-	unsigned char temp[5];
-	unsigned int header;
+	simplewebp_u8 temp[5];
+	simplewebp_u32 header;
 	simplewebp *result;
 
-	if (!simplewebp__seek(0, vp8_input))
+	if (!swebp__seek(0, vp8_input))
 	{
 		simplewebp_close_input(vp8_input);
 		simplewebp_close_input(riff_input);
 		return SIMPLEWEBP_IO_ERROR;
 	}
 
-	if (!simplewebp__read2(5, temp, vp8_input))
+	if (!swebp__read2(5, temp, vp8_input))
 	{
 		simplewebp_close_input(vp8_input);
 		simplewebp_close_input(riff_input);
@@ -895,7 +923,7 @@ static simplewebp_error simplewebp__load_lossless(const simplewebp_allocator *al
 		return SIMPLEWEBP_CORRUPT_ERROR;
 	}
 
-	header = simplewebp__to_uint32(temp + 1);
+	header = swebp__to_uint32(temp + 1);
 	if ((header >> 29) != 0)
 	{
 		simplewebp_close_input(vp8_input);
@@ -916,7 +944,7 @@ static simplewebp_error simplewebp__load_lossless(const simplewebp_allocator *al
 	result->riff_input = *riff_input;
 	result->vp8_input = *vp8_input;
 	result->allocator = *allocator;
-	memset(&result->decoder.vp8l, 0, sizeof(struct simplewebp__vp8l_decoder));
+	memset(&result->decoder.vp8l, 0, sizeof(struct swebp__vp8l_decoder));
 	result->decoder.vp8l.width = (header & 0x3FF) + 1;
 	result->decoder.vp8l.height = ((header >> 14) & 0x3FF) + 1;
 	result->webp_type = 1;
@@ -925,47 +953,47 @@ static simplewebp_error simplewebp__load_lossless(const simplewebp_allocator *al
 	return SIMPLEWEBP_NO_ERROR;
 }
 
-static unsigned int simplewebp__to_uint24(const unsigned char *buf)
+static simplewebp_u32 swebp__to_uint24(const simplewebp_u8 *buf)
 {
-	return buf[0] | (((unsigned int) buf[1]) << 8) | (((unsigned int) buf[2]) << 16);
+	return buf[0] | (((simplewebp_u32) buf[1]) << 8) | (((simplewebp_u32) buf[2]) << 16);
 }
 
-static simplewebp_error simplewebp__alpha_init(simplewebp *simplewebp)
+static simplewebp_error swebp__alpha_init(simplewebp *simplewebp)
 {
 	simplewebp_input *alph_input = &simplewebp->alph_input;
-	if (!simplewebp__seek(0, alph_input))
+	if (!swebp__seek(0, alph_input))
 		return SIMPLEWEBP_IO_ERROR;
 
 	/* TODO */
 	return SIMPLEWEBP_NO_ERROR;
 }
 
-static simplewebp_error simplewebp__load_extended(const simplewebp_allocator *allocator, simplewebp_input *input, simplewebp_input *riff_input, simplewebp_input *vp8x_input, simplewebp **out)
+static simplewebp_error swebp__load_extended(const simplewebp_allocator *allocator, simplewebp_input *input, simplewebp_input *riff_input, simplewebp_input *vp8x_input, simplewebp **out)
 {
 	simplewebp *result;
 	simplewebp_input alpha_input, chunk;
 	simplewebp_error err;
-	unsigned char temp[8], handled;
-	unsigned int width, height, pwidth, pheight;
+	simplewebp_u8 temp[8], handled;
+	simplewebp_u32 width, height, pwidth, pheight;
 
 	memset(&chunk, 0, sizeof(simplewebp_input));
 	memset(&alpha_input, 0, sizeof(simplewebp_input));
 
-	if (!simplewebp__seek(0, vp8x_input))
+	if (!swebp__seek(0, vp8x_input))
 	{
 		simplewebp_close_input(vp8x_input);
 		simplewebp_close_input(riff_input);
 		return SIMPLEWEBP_IO_ERROR;
 	}
 
-	if (!simplewebp__read(7, temp, vp8x_input))
+	if (!swebp__read(7, temp, vp8x_input))
 	{
 		simplewebp_close_input(vp8x_input);
 		simplewebp_close_input(riff_input);
 		return SIMPLEWEBP_IO_ERROR;
 	}
 
-	width = simplewebp__to_uint24(temp + 4) + 1;
+	width = swebp__to_uint24(temp + 4) + 1;
 	if (width > 16384)
 	{
 		simplewebp_close_input(vp8x_input);
@@ -973,14 +1001,14 @@ static simplewebp_error simplewebp__load_extended(const simplewebp_allocator *al
 		return SIMPLEWEBP_CORRUPT_ERROR;
 	}
 	
-	if (!simplewebp__read2(3, temp, vp8x_input))
+	if (!swebp__read2(3, temp, vp8x_input))
 	{
 		simplewebp_close_input(vp8x_input);
 		simplewebp_close_input(riff_input);
 		return SIMPLEWEBP_IO_ERROR;
 	}
 
-	height = simplewebp__to_uint24(temp) + 1;
+	height = swebp__to_uint24(temp) + 1;
 	if (height > 16384)
 	{
 		simplewebp_close_input(vp8x_input);
@@ -989,7 +1017,7 @@ static simplewebp_error simplewebp__load_extended(const simplewebp_allocator *al
 	}
 
 	/* Skip the rest of VP8X chunk */
-	if (!simplewebp__seek(simplewebp__proxy_size(vp8x_input->userdata), vp8x_input))
+	if (!swebp__seek(swebp__proxy_size(vp8x_input->userdata), vp8x_input))
 	{
 		simplewebp_close_input(vp8x_input);
 		simplewebp_close_input(riff_input);
@@ -999,7 +1027,7 @@ static simplewebp_error simplewebp__load_extended(const simplewebp_allocator *al
 	while (1)
 	{
 		handled = 0;
-		err = simplewebp__get_input_chunk_4cc(allocator, riff_input, &chunk, temp);
+		err = swebp__get_input_chunk_4cc(allocator, riff_input, &chunk, temp);
 		if (err != SIMPLEWEBP_NO_ERROR)
 		{
 			simplewebp_close_input(vp8x_input);
@@ -1009,12 +1037,12 @@ static simplewebp_error simplewebp__load_extended(const simplewebp_allocator *al
 
 		if (memcmp(temp, "VP8 ", 4) == 0)
 		{
-			err = simplewebp__load_lossy(allocator, input, riff_input, &chunk, &result);
+			err = swebp__load_lossy(allocator, input, riff_input, &chunk, &result);
 			break;
 		}
 		else if (memcmp(temp, "VP8L", 4) == 0)
 		{
-			err = simplewebp__load_lossless(allocator, input, riff_input, &chunk, &result);
+			err = swebp__load_lossless(allocator, input, riff_input, &chunk, &result);
 			break;
 		}
 		else if (memcmp(temp, "ALPH", 4) == 0)
@@ -1024,7 +1052,7 @@ static simplewebp_error simplewebp__load_extended(const simplewebp_allocator *al
 		}
 
 		/* Skip this chunk over */
-		if (!simplewebp__seek(simplewebp__proxy_size(chunk.userdata), &chunk))
+		if (!swebp__seek(swebp__proxy_size(chunk.userdata), &chunk))
 		{
 			if (alpha_input.userdata)
 				simplewebp_close_input(&alpha_input);
@@ -1082,9 +1110,9 @@ static simplewebp_error simplewebp__load_extended(const simplewebp_allocator *al
 		result->alph_input = alpha_input;
 		if (result->webp_type == 0)
 		{
-			memset(&result->alpha_decoder, 0, sizeof(struct simplewebp__alpha_decoder));
+			memset(&result->alpha_decoder, 0, sizeof(struct swebp__alpha_decoder));
 			result->decoder.vp8.alpha_decoder = &result->alpha_decoder;
-			err = simplewebp__alpha_init(result);
+			err = swebp__alpha_init(result);
 		}
 	}
 
@@ -1103,7 +1131,7 @@ static simplewebp_error simplewebp__load_extended(const simplewebp_allocator *al
 
 simplewebp_error simplewebp_load(simplewebp_input *input, const simplewebp_allocator *allocator, simplewebp **out)
 {
-	unsigned char temp[4];
+	simplewebp_u8 temp[4];
 	simplewebp_error err;
 	simplewebp_input riff_input, vp8_input;
 
@@ -1112,7 +1140,7 @@ simplewebp_error simplewebp_load(simplewebp_input *input, const simplewebp_alloc
 		allocator = &simplewebp_default_allocator;
 
 	/* Read "RIFF" */
-	err = simplewebp__get_input_chunk_4cc(allocator, input, &riff_input, temp);
+	err = swebp__get_input_chunk_4cc(allocator, input, &riff_input, temp);
 	if (err != SIMPLEWEBP_NO_ERROR)
 		return err;
 	if (memcmp(temp, "RIFF", 4) != 0)
@@ -1122,7 +1150,7 @@ simplewebp_error simplewebp_load(simplewebp_input *input, const simplewebp_alloc
 	}
 
 	/* Read "WEBP" */
-	if (!simplewebp__read2(4, temp, &riff_input))
+	if (!swebp__read2(4, temp, &riff_input))
 	{
 		simplewebp_close_input(&riff_input);
 		return SIMPLEWEBP_IO_ERROR;
@@ -1133,7 +1161,7 @@ simplewebp_error simplewebp_load(simplewebp_input *input, const simplewebp_alloc
 		return SIMPLEWEBP_NOT_WEBP_ERROR;
 	}
 
-	err = simplewebp__get_input_chunk_4cc(allocator, &riff_input, &vp8_input, temp);
+	err = swebp__get_input_chunk_4cc(allocator, &riff_input, &vp8_input, temp);
 	if (err != SIMPLEWEBP_NO_ERROR)
 	{
 		simplewebp_close_input(&riff_input);
@@ -1141,11 +1169,11 @@ simplewebp_error simplewebp_load(simplewebp_input *input, const simplewebp_alloc
 	}
 
 	if (memcmp(temp, "VP8 ", 4) == 0)
-		return simplewebp__load_lossy(allocator, input, &riff_input, &vp8_input, out);
+		return swebp__load_lossy(allocator, input, &riff_input, &vp8_input, out);
 	else if (memcmp(temp, "VP8L", 4) == 0)
-		return simplewebp__load_lossless(allocator, input, &riff_input, &vp8_input, out);
+		return swebp__load_lossless(allocator, input, &riff_input, &vp8_input, out);
 	else if (memcmp(temp, "VP8X", 4) == 0)
-		return simplewebp__load_extended(allocator, input, &riff_input, &vp8_input, out);
+		return swebp__load_extended(allocator, input, &riff_input, &vp8_input, out);
 	else
 	{
 		simplewebp_close_input(&vp8_input);
@@ -1197,18 +1225,18 @@ void simplewebp_get_dimensions(simplewebp *simplewebp, size_t *width, size_t *he
 	}
 }
 
-static void simplewebp__bitread_setbuf(struct simplewebp__bitread *br, unsigned char *buf, size_t size)
+static void swebp__bitread_setbuf(struct swebp__bdec *br, simplewebp_u8 *buf, size_t size)
 {
 	br->buf = buf;
 	br->buf_end = buf + size;
-	br->buf_max = (size >= sizeof(unsigned int))
-		? (buf + size - sizeof(unsigned int) + 1)
+	br->buf_max = (size >= sizeof(simplewebp_u32))
+		? (buf + size - sizeof(simplewebp_u32) + 1)
 		: buf;
 }
 
-static void simplewebp__bitread_load(struct simplewebp__bitread *br)
+static void swebp__bitread_load(struct swebp__bdec *br)
 {
-	unsigned int bits;
+	simplewebp_u32 bits;
 
 	if (br->buf < br->buf_max)
 	{
@@ -1237,103 +1265,103 @@ static void simplewebp__bitread_load(struct simplewebp__bitread *br)
 	}
 }
 
-static void simplewebp__bitread_init(struct simplewebp__bitread *br, unsigned char *buf, size_t size)
+static void swebp__bitread_init(struct swebp__bdec *br, simplewebp_u8 *buf, size_t size)
 {
 	br->range = 254;
 	br->value = 0;
 	br->bits = -8;
 	br->eof = 0;
-	simplewebp__bitread_setbuf(br, buf, size);
-	simplewebp__bitread_load(br);
+	swebp__bitread_setbuf(br, buf, size);
+	swebp__bitread_load(br);
 }
 
 /* https://stackoverflow.com/a/11398748 */
-const unsigned int simplewebp__blog2_tab32[32] = {
+const simplewebp_u32 swebp__blog2_tab32[32] = {
 	 0,  9,  1, 10, 13, 21,  2, 29,
 	11, 14, 16, 18, 22, 25,  3, 30,
 	 8, 12, 20, 28, 15, 17, 24,  7,
 	19, 27, 23,  6, 26,  5,  4, 31
 };
 
-static unsigned int simplewebp__bitslog2floor(unsigned int value)
+static simplewebp_u32 swebp__bitslog2floor(simplewebp_u32 value)
 {
 	value |= value >> 1;
 	value |= value >> 2;
 	value |= value >> 4;
 	value |= value >> 8;
 	value |= value >> 16;
-	return simplewebp__blog2_tab32[(value * 0x07C4ACDDU) >> 27];
+	return swebp__blog2_tab32[(value * 0x07C4ACDDU) >> 27];
 }
 
-static unsigned int simplewebp__bitread_getbit(struct simplewebp__bitread *br, unsigned int prob)
+static simplewebp_u32 swebp__bitread_getbit(struct swebp__bdec *br, simplewebp_u32 prob)
 {
-	unsigned int bit;
-	unsigned char range, split, value, shift;
-	signed char pos;
+	simplewebp_u32 bit;
+	simplewebp_u8 range, split, value, shift;
+	simplewebp_i8 pos;
 
 	range = br->range;
 
 	if (br->bits < 0)
-		simplewebp__bitread_load(br);
+		swebp__bitread_load(br);
 
 	pos = br->bits;
-	split = (unsigned char) ((((unsigned int) range) * prob) >> 8);
-	value = (unsigned char) (br->value >> pos);
+	split = (simplewebp_u8) ((((simplewebp_u32) range) * prob) >> 8);
+	value = (simplewebp_u8) (br->value >> pos);
 	bit = value > split;
 
 	if (bit)
 	{
 		range -= split;
-		br->value -= (((unsigned int) split) + 1) << pos;
+		br->value -= (((simplewebp_u32) split) + 1) << pos;
 	}
 	else
 		range = split + 1;
 
-	shift = 7 ^ simplewebp__bitslog2floor(range);
+	shift = 7 ^ swebp__bitslog2floor(range);
 	range <<= shift;
 	br->bits -= shift;
 	br->range = range - 1;
 	return bit;
 }
 
-static unsigned int simplewebp__bitread_getval(struct simplewebp__bitread *br, unsigned int bits)
+static simplewebp_u32 swebp__bitread_getval(struct swebp__bdec *br, simplewebp_u8 bits)
 {
-	unsigned int value = 0;
+	simplewebp_u32 value = 0;
 
 	while (bits--)
-		value |= simplewebp__bitread_getbit(br, 0x80) << bits;
+		value |= swebp__bitread_getbit(br, 0x80) << bits;
 
 	return value;
 }
 
-static int simplewebp__bitread_getvalsigned(struct simplewebp__bitread *br, unsigned int bits)
+static simplewebp_i32 swebp__bitread_getvalsigned(struct swebp__bdec *br, simplewebp_u8 bits)
 {
-	int value = simplewebp__bitread_getval(br, bits);
-	return simplewebp__bitread_getval(br, 1) ? -value : value;
+	simplewebp_i32 value = swebp__bitread_getval(br, bits);
+	return swebp__bitread_getval(br, 1) ? -value : value;
 }
 
-static int simplewebp__bitread_getsigned(struct simplewebp__bitread *br, int v)
+static simplewebp_i32 swebp__bitread_getsigned(struct swebp__bdec *br, simplewebp_u8 v)
 {
-	signed char pos;
-	unsigned int split, value;
-	int mask;
+	simplewebp_i8 pos;
+	simplewebp_u32 split, value;
+	simplewebp_i32 mask;
 
 	if (br->bits < 0)
-		simplewebp__bitread_load(br);
+		swebp__bitread_load(br);
 
 	pos = br->bits;
 	split = br->range >> 1;
 	value = br->value >> pos;
-	mask = ((int) (split - value)) >> 31;
+	mask = ((simplewebp_i32) (split - value)) >> 31;
 	br->bits -= 1;
-	br->range += (unsigned char) mask;
+	br->range += (simplewebp_u8) mask;
 	br->range |= 1;
-	br->value -= (unsigned int) ((split + 1) & (unsigned int) mask) << pos;
+	br->value -= (simplewebp_u32) ((split + 1) & (simplewebp_u32) mask) << pos;
 	return (v ^ mask) - mask;
 }
 
 /* RFC 6386 section 14.1 */
-static const unsigned char simplewebp__dctab[128] = {
+static const simplewebp_u8 swebp__dctab[128] = {
   4,     5,   6,   7,   8,   9,  10,  10,
   11,   12,  13,  14,  15,  16,  17,  17,
   18,   19,  20,  20,  21,  21,  22,  22,
@@ -1352,7 +1380,7 @@ static const unsigned char simplewebp__dctab[128] = {
   138, 140, 143, 145, 148, 151, 154, 157
 };
 
-static const unsigned short simplewebp__actab[128] = {
+static const simplewebp_u16 swebp__actab[128] = {
 	4,     5,   6,   7,   8,   9,  10,  11,
 	12,   13,  14,  15,  16,  17,  18,  19,
 	20,   21,  22,  23,  24,  25,  26,  27,
@@ -1371,13 +1399,13 @@ static const unsigned short simplewebp__actab[128] = {
 	249, 254, 259, 264, 269, 274, 279, 284
 };
 
-static int simplewebp__clip(int v, int m)
+static simplewebp_i32 swebp__clip(simplewebp_i32 v, simplewebp_i32 m)
 {
 	return (v < 0) ? 0 : ((v > m) ? m : v);
 }
 
 /* RFC 6386 section 13 */
-static const unsigned char simplewebp__coeff_update_proba[4][8][3][11] = {
+static const simplewebp_u8 swebp__coeff_update_proba[4][8][3][11] = {
 	{ { { 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255 },
 			{ 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255 },
 			{ 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255 }
@@ -1513,7 +1541,7 @@ static const unsigned char simplewebp__coeff_update_proba[4][8][3][11] = {
 };
 
 /* RFC 6386 section 13.5 */
-static const unsigned char simplewebp__coeff_proba0[4][8][3][11] = {
+static const simplewebp_u8 swebp__coeff_proba0[4][8][3][11] = {
 	{ { { 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128 },
 			{ 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128 },
 			{ 128, 128, 128, 128, 128, 128, 128, 128, 128, 128, 128 }
@@ -1648,21 +1676,21 @@ static const unsigned char simplewebp__coeff_proba0[4][8][3][11] = {
 	}
 };
 
-static const unsigned char simplewebp__kbands[16 + 1] = {
+static const simplewebp_u8 swebp__kbands[16 + 1] = {
 	0, 1, 2, 3, 6, 4, 5, 6, 6, 6, 6, 6, 6, 6, 6, 7, 0
 };
 
-static const unsigned char simplewebp__fextrarows[3] = {0, 2, 8};
+static const simplewebp_u8 swebp__fextrarows[3] = {0, 2, 8};
 
-static unsigned char *simplewebp__align32(unsigned char *ptr)
+static simplewebp_u8 *swebp__align32(simplewebp_u8 *ptr)
 {
 	size_t uptr = (size_t) ptr;
-	return (unsigned char *) ((uptr + 31) & (~(size_t)31));
+	return (simplewebp_u8 *) ((uptr + 31) & (~(size_t)31));
 }
 
 /* Clip tables */
 
-static const unsigned char simplewebp__abs0[255 + 255 + 1] = {
+static const simplewebp_u8 swebp__abs0[255 + 255 + 1] = {
 	0xff, 0xfe, 0xfd, 0xfc, 0xfb, 0xfa, 0xf9, 0xf8, 0xf7, 0xf6, 0xf5, 0xf4,
 	0xf3, 0xf2, 0xf1, 0xf0, 0xef, 0xee, 0xed, 0xec, 0xeb, 0xea, 0xe9, 0xe8,
 	0xe7, 0xe6, 0xe5, 0xe4, 0xe3, 0xe2, 0xe1, 0xe0, 0xdf, 0xde, 0xdd, 0xdc,
@@ -1707,9 +1735,9 @@ static const unsigned char simplewebp__abs0[255 + 255 + 1] = {
 	0xed, 0xee, 0xef, 0xf0, 0xf1, 0xf2, 0xf3, 0xf4, 0xf5, 0xf6, 0xf7, 0xf8,
 	0xf9, 0xfa, 0xfb, 0xfc, 0xfd, 0xfe, 0xff
 };
-static const unsigned char *const simplewebp__kabs0 = &simplewebp__abs0[255];
+static const simplewebp_u8 *const swebp__kabs0 = &swebp__abs0[255];
 
-static const unsigned char simplewebp__sclip1[1020 + 1020 + 1] = {
+static const simplewebp_u8 swebp__sclip1[1020 + 1020 + 1] = {
 	0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
 	0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
 	0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80,
@@ -1881,9 +1909,9 @@ static const unsigned char simplewebp__sclip1[1020 + 1020 + 1] = {
 	0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f,
 	0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f, 0x7f
 };
-static const char *const simplewebp__ksclip1 = (const char *) &simplewebp__sclip1[1020];
+static const simplewebp_i8 *const swebp__ksclip1 = (const simplewebp_i8 *) &swebp__sclip1[1020];
 
-static const unsigned char simplewebp__sclip2[112 + 112 + 1] = {
+static const simplewebp_u8 swebp__sclip2[112 + 112 + 1] = {
 	0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0,
 	0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0,
 	0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0, 0xf0,
@@ -1904,9 +1932,9 @@ static const unsigned char simplewebp__sclip2[112 + 112 + 1] = {
 	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f,
 	0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f, 0x0f
 };
-static const char *const simplewebp__ksclip2 = (const char *) &simplewebp__sclip2[112];
+static const simplewebp_i8 *const swebp__ksclip2 = (const simplewebp_i8 *) &swebp__sclip2[112];
 
-static const unsigned char simplewebp__clip1[255 + 511 + 1] = {
+static const simplewebp_u8 swebp__clip1[255 + 511 + 1] = {
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -1972,17 +2000,17 @@ static const unsigned char simplewebp__clip1[255 + 511 + 1] = {
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff,
 	0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff
 };
-static const unsigned char *const simplewebp__kclip1 = &simplewebp__clip1[255];
+static const simplewebp_u8 *const swebp__kclip1 = &swebp__clip1[255];
 
 /* RFC 6386 section 14.4 */
 
-static void simplewebp__transform_wht(const short *in, short *out)
+static void swebp__transform_wht(const simplewebp_i16 *in, simplewebp_i16 *out)
 {
-	int temp[16], i;
+	simplewebp_i32 temp[16], i;
 
 	for (i = 0; i < 4; i++)
 	{
-		int a0, a1, a2, a3;
+		simplewebp_i32 a0, a1, a2, a3;
 
 		a0 = in[i] + in[i + 12];
 		a1 = in[i + 4] + in[i + 8];
@@ -1995,7 +2023,7 @@ static void simplewebp__transform_wht(const short *in, short *out)
 	}
 	for (i = 0; i < 4; i++)
 	{
-		int dc, a0, a1, a2, a3;
+		simplewebp_i32 dc, a0, a1, a2, a3;
 
 		dc = temp[i * 4] + 3;
 		a0 = dc + temp[i * 4 + 3];
@@ -2009,39 +2037,39 @@ static void simplewebp__transform_wht(const short *in, short *out)
 	}
 }
 
-static int simplewebp__mul1(short a)
+static simplewebp_i32 swebp__mul1(simplewebp_i16 a)
 {
-	return (((int) a * 20091) >> 16) + a;
+	return (((simplewebp_i32) a * 20091) >> 16) + a;
 }
 
-static int simplewebp__mul2(short a)
+static simplewebp_i32 swebp__mul2(simplewebp_i16 a)
 {
-	return ((int) a * 35468) >> 16;
+	return ((simplewebp_i32) a * 35468) >> 16;
 }
 
 
-static unsigned char simplewebp__clip8b(int v) {
+static simplewebp_u8 swebp__clip8b(simplewebp_i32 v) {
 	return (!(v & ~0xff)) ? v : (v < 0) ? 0 : 255;
 }
 
-static void simplewebp__store(unsigned char *out, int x, int y, int v)
+static void swebp__store(simplewebp_u8 *out, simplewebp_i32 x, simplewebp_i32 y, simplewebp_i32 v)
 {
-	out[y * 32 + x] = simplewebp__clip8b(out[y * 32 + x] + (v >> 3));
+	out[y * 32 + x] = swebp__clip8b(out[y * 32 + x] + (v >> 3));
 }
 
-static void simplewebp__transform_one(const short *in, unsigned char *out)
+static void swebp__transform_one(const simplewebp_i16 *in, simplewebp_u8 *out)
 {
-	int tmp[16], i;
+	simplewebp_i32 tmp[16], i;
 
 	/* Vertical pass */
 	for (i = 0; i < 4; i++)
 	{
-		int a, b, c, d;
+		simplewebp_i32 a, b, c, d;
 
 		a = in[i] + in[i + 8];
 		b = in[i] - in[i + 8];
-		c = simplewebp__mul2(in[i + 4]) - simplewebp__mul1(in[i + 12]);
-		d = simplewebp__mul1(in[i + 4]) + simplewebp__mul2(in[i + 12]);
+		c = swebp__mul2(in[i + 4]) - swebp__mul1(in[i + 12]);
+		d = swebp__mul1(in[i + 4]) + swebp__mul2(in[i + 12]);
 		tmp[i * 4] = a + d;
 		tmp[i * 4 + 1] = b + c;
 		tmp[i * 4 + 2] = b - c;
@@ -2050,83 +2078,83 @@ static void simplewebp__transform_one(const short *in, unsigned char *out)
 	/* Horizontal pass */
 	for (i = 0; i < 4; i++)
 	{
-		int dc, a, b, c, d;
+		simplewebp_i32 dc, a, b, c, d;
 
 		dc = tmp[i] + 4;
 		a = dc + tmp[i + 8];
 		b = dc - tmp[i + 8];
-		c = simplewebp__mul2(tmp[i + 4]) - simplewebp__mul1(tmp[i + 12]);
-		d = simplewebp__mul1(tmp[i + 4]) + simplewebp__mul2(tmp[i + 12]);
-		simplewebp__store(out, 0, i, a + d);
-		simplewebp__store(out, 1, i, b + c);
-		simplewebp__store(out, 2, i, b - c);
-		simplewebp__store(out, 3, i, a - d);
+		c = swebp__mul2(tmp[i + 4]) - swebp__mul1(tmp[i + 12]);
+		d = swebp__mul1(tmp[i + 4]) + swebp__mul2(tmp[i + 12]);
+		swebp__store(out, 0, i, a + d);
+		swebp__store(out, 1, i, b + c);
+		swebp__store(out, 2, i, b - c);
+		swebp__store(out, 3, i, a - d);
 	}
 }
 
-static void simplewebp__transform(const short *in, unsigned char *out, unsigned char do_2)
+static void swebp__transform(const simplewebp_i16 *in, simplewebp_u8 *out, simplewebp_u8 do_2)
 {
-	simplewebp__transform_one(in, out);
+	swebp__transform_one(in, out);
 	if (do_2)
-		simplewebp__transform_one(in + 16, out + 4);
+		swebp__transform_one(in + 16, out + 4);
 }
 
-static void simplewebp__transform_dc(const short *in, unsigned char *out)
+static void swebp__transform_dc(const simplewebp_i16 *in, simplewebp_u8 *out)
 {
-	int dc, x, y;
+	simplewebp_i32 dc, x, y;
 	dc = in[0] + 4;
 
 	for (y = 0; y < 4; y++)
 	{
 		for (x = 0; x < 4; x++)
-			simplewebp__store(out, x, y, dc);
+			swebp__store(out, x, y, dc);
 	}
 }
 
-static void simplewebp__store2(unsigned char *out, int y, int dc, int d, int c)
+static void swebp__store2(simplewebp_u8 *out, simplewebp_i32 y, simplewebp_i32 dc, simplewebp_i32 d, simplewebp_i32 c)
 {
-	simplewebp__store(out, 0, y, dc + d);
-	simplewebp__store(out, 1, y, dc + c);
-	simplewebp__store(out, 2, y, dc - c);
-	simplewebp__store(out, 3, y, dc - d);
+	swebp__store(out, 0, y, dc + d);
+	swebp__store(out, 1, y, dc + c);
+	swebp__store(out, 2, y, dc - c);
+	swebp__store(out, 3, y, dc - d);
 }
 
-static void simplewebp__transform_ac3(const short *in, unsigned char *out)
+static void swebp__transform_ac3(const simplewebp_i16 *in, simplewebp_u8 *out)
 {
-	int a, c4, d4, c1, d1;
+	simplewebp_i32 a, c4, d4, c1, d1;
 
 	a = in[0] + 4;
-	c4 = simplewebp__mul2(in[4]);
-	d4 = simplewebp__mul1(in[4]);
-	c1 = simplewebp__mul2(in[1]);
-	d1 = simplewebp__mul1(in[1]);
-	simplewebp__store2(out, 0, a + d4, d1, c1);
-	simplewebp__store2(out, 1, a + c4, d1, c1);
-	simplewebp__store2(out, 2, a - c4, d1, c1);
-	simplewebp__store2(out, 3, a - d4, d1, c1);
+	c4 = swebp__mul2(in[4]);
+	d4 = swebp__mul1(in[4]);
+	c1 = swebp__mul2(in[1]);
+	d1 = swebp__mul1(in[1]);
+	swebp__store2(out, 0, a + d4, d1, c1);
+	swebp__store2(out, 1, a + c4, d1, c1);
+	swebp__store2(out, 2, a - c4, d1, c1);
+	swebp__store2(out, 3, a - d4, d1, c1);
 }
 
-static void simplewebp__transform_uv(const short *in, unsigned char *out)
+static void swebp__transform_uv(const simplewebp_i16 *in, simplewebp_u8 *out)
 {
-	simplewebp__transform(in, out, 1);
-	simplewebp__transform(in + 32 /* 2*16 */, out + 128 /* 4*BPS */, 1);
+	swebp__transform(in, out, 1);
+	swebp__transform(in + 32 /* 2*16 */, out + 128 /* 4*BPS */, 1);
 }
 
-static void simplewebp__transform_dcuv(const short *in, unsigned char *out)
+static void swebp__transform_dcuv(const simplewebp_i16 *in, simplewebp_u8 *out)
 {
 	if (in[0])
-		simplewebp__transform_dc(in, out);
+		swebp__transform_dc(in, out);
 	if (in[16])
-		simplewebp__transform_dc(in + 16, out + 4);
+		swebp__transform_dc(in + 16, out + 4);
 	if (in[32])
-		simplewebp__transform_dc(in + 32, out + 128);
+		swebp__transform_dc(in + 32, out + 128);
 	if (in[48])
-		simplewebp__transform_dc(in + 48, out + 132);
+		swebp__transform_dc(in + 48, out + 132);
 }
 
-static int simplewebp__needsfilter2(const unsigned char *p, int step, int t, int it)
+static simplewebp_i32 swebp__needsfilter2(const simplewebp_u8 *p, simplewebp_i32 step, simplewebp_i32 t, simplewebp_i32 it)
 {
-	int p3, p2, p1, p0, q0, q1, q2, q3;
+	simplewebp_i32 p3, p2, p1, p0, q0, q1, q2, q3;
 	p3 = p[-4 * step];
 	p2 = p[-3 * step];
 	p1 = p[-2 * step];
@@ -2136,48 +2164,48 @@ static int simplewebp__needsfilter2(const unsigned char *p, int step, int t, int
 	q2 = p[2 * step];
 	q3 = p[3 * step];
 
-	if ((4 * simplewebp__kabs0[p0 - q0] + simplewebp__kabs0[p1 - q1]) > t)
+	if ((4 * swebp__kabs0[p0 - q0] + swebp__kabs0[p1 - q1]) > t)
 		return 0;
 
 	return
-		simplewebp__kabs0[p3 - p2] <= it &&
-		simplewebp__kabs0[p2 - p1] <= it &&
-		simplewebp__kabs0[p1 - p0] <= it &&
-		simplewebp__kabs0[q3 - q2] <= it &&
-		simplewebp__kabs0[q2 - q1] <= it &&
-		simplewebp__kabs0[q1 - q0] <= it;
+		swebp__kabs0[p3 - p2] <= it &&
+		swebp__kabs0[p2 - p1] <= it &&
+		swebp__kabs0[p1 - p0] <= it &&
+		swebp__kabs0[q3 - q2] <= it &&
+		swebp__kabs0[q2 - q1] <= it &&
+		swebp__kabs0[q1 - q0] <= it;
 }
 
-static int simplewebp__hev(const unsigned char *p, int step, int thresh)
+static simplewebp_i32 swebp__hev(const simplewebp_u8 *p, simplewebp_i32 step, simplewebp_i32 thresh)
 {
-	int p1, p0, q0, q1;
+	simplewebp_i32 p1, p0, q0, q1;
 
 	p1 = p[-2 * step];
 	p0 = p[-step];
 	q0 = p[0];
 	q1 = p[step];
 
-	return (simplewebp__kabs0[p1 - p0] > thresh) || (simplewebp__kabs0[q1 - q0] > thresh);
+	return (swebp__kabs0[p1 - p0] > thresh) || (swebp__kabs0[q1 - q0] > thresh);
 }
 
-static void simplewebp__do_filter2(unsigned char *p, int step)
+static void swebp__do_filter2(simplewebp_u8 *p, simplewebp_i32 step)
 {
-	int p1, p0, q0, q1, a, a1, a2;
+	simplewebp_i32 p1, p0, q0, q1, a, a1, a2;
 
 	p1 =  p[-2 * step];
 	p0 = p[-step];
 	q0 = p[0];
 	q1 = p[step];
-	a = 3 * (q0 - p0) + simplewebp__ksclip1[p1 - q1];
-	a1 =  simplewebp__ksclip2[(a + 4) >> 3];
-	a2 =  simplewebp__ksclip2[(a + 3) >> 3];
-	p[-step] = simplewebp__kclip1[p0 + a2];
-	p[0] = simplewebp__kclip1[q0 - a1];
+	a = 3 * (q0 - p0) + swebp__ksclip1[p1 - q1];
+	a1 =  swebp__ksclip2[(a + 4) >> 3];
+	a2 =  swebp__ksclip2[(a + 3) >> 3];
+	p[-step] = swebp__kclip1[p0 + a2];
+	p[0] = swebp__kclip1[q0 - a1];
 }
 
-static void simplewebp__do_filter6(unsigned char *p, int step)
+static void swebp__do_filter6(simplewebp_u8 *p, simplewebp_i32 step)
 {
-	int p2, p1, p0, q0, q1, q2, a, a1, a2, a3;
+	simplewebp_i32 p2, p1, p0, q0, q1, q2, a, a1, a2, a3;
 
 	p2 =  p[-3 * step];
 	p1 =  p[-2 * step];
@@ -2185,195 +2213,195 @@ static void simplewebp__do_filter6(unsigned char *p, int step)
 	q0 = p[0];
 	q1 = p[step];
 	q2 = p[2 * step];
-	a = simplewebp__ksclip1[3 * (q0 - p0) + simplewebp__ksclip1[p1 - q1]];
+	a = swebp__ksclip1[3 * (q0 - p0) + swebp__ksclip1[p1 - q1]];
 	a1 = (27 * a + 63) >> 7;
 	a2 = (18 * a + 63) >> 7;
 	a3 = (9 * a + 63) >> 7;
 
-	p[-3 * step] = simplewebp__kclip1[p2 + a3];
-	p[-2 * step] = simplewebp__kclip1[p1 + a2];
-	p[-step] = simplewebp__kclip1[p0 + a1];
-	p[0] = simplewebp__kclip1[q0 - a1];
-	p[step] = simplewebp__kclip1[q1 - a2];
-	p[2 * step] = simplewebp__kclip1[q2 - a3];
+	p[-3 * step] = swebp__kclip1[p2 + a3];
+	p[-2 * step] = swebp__kclip1[p1 + a2];
+	p[-step] = swebp__kclip1[p0 + a1];
+	p[0] = swebp__kclip1[q0 - a1];
+	p[step] = swebp__kclip1[q1 - a2];
+	p[2 * step] = swebp__kclip1[q2 - a3];
 }
 
-static void simplewebp__filterloop26(unsigned char *p, int hstride, int vstride, int size, int thresh, int ithresh, int hev_thresh)
+static void swebp__filterloop26(simplewebp_u8 *p, simplewebp_i32 hstride, simplewebp_i32 vstride, simplewebp_i32 size, simplewebp_i32 thresh, simplewebp_i32 ithresh, simplewebp_i32 hev_thresh)
 {
-	int thresh2 = 2 * thresh + 1;
+	simplewebp_i32 thresh2 = 2 * thresh + 1;
 
 	while (size-- > 0)
 	{
-		if (simplewebp__needsfilter2(p, hstride, thresh2, ithresh))
+		if (swebp__needsfilter2(p, hstride, thresh2, ithresh))
 		{
-			if (simplewebp__hev(p, hstride, hev_thresh))
-				simplewebp__do_filter2(p, hstride);
+			if (swebp__hev(p, hstride, hev_thresh))
+				swebp__do_filter2(p, hstride);
 			else
-				simplewebp__do_filter6(p, hstride);
+				swebp__do_filter6(p, hstride);
 		}
 
 		p += vstride;
 	}
 }
 
-static void simplewebp__vfilter16(unsigned char *p, int stride, int thresh, int ithresh, int hev_thresh)
+static void swebp__vfilter16(simplewebp_u8 *p, simplewebp_i32 stride, simplewebp_i32 thresh, simplewebp_i32 ithresh, simplewebp_i32 hev_thresh)
 {
-	simplewebp__filterloop26(p, stride, 1, 16, thresh, ithresh, hev_thresh);
+	swebp__filterloop26(p, stride, 1, 16, thresh, ithresh, hev_thresh);
 }
 
-static void simplewebp__do_filter4(unsigned char *p, int step)
+static void swebp__do_filter4(simplewebp_u8 *p, simplewebp_i32 step)
 {
-	int p1, p0, q0, q1, a, a1, a2, a3;
+	simplewebp_i32 p1, p0, q0, q1, a, a1, a2, a3;
 
 	p1 =  p[-2 * step];
 	p0 = p[-step];
 	q0 = p[0];
 	q1 = p[step];
 	a = 3 * (q0 - p0);
-	a1 = simplewebp__ksclip2[(a + 4) >> 3];
-	a2 = simplewebp__ksclip2[(a + 3) >> 3];
+	a1 = swebp__ksclip2[(a + 4) >> 3];
+	a2 = swebp__ksclip2[(a + 3) >> 3];
 	a3 = (a1 + 1) >> 1;
 
-	p[-2 * step] = simplewebp__kclip1[p1 + a3];
-	p[-step] = simplewebp__kclip1[p0 + a2];
-	p[0] = simplewebp__kclip1[q0 - a1];
-	p[step] = simplewebp__kclip1[q1 - a3];
+	p[-2 * step] = swebp__kclip1[p1 + a3];
+	p[-step] = swebp__kclip1[p0 + a2];
+	p[0] = swebp__kclip1[q0 - a1];
+	p[step] = swebp__kclip1[q1 - a3];
 }
 
-static void simplewebp__filterloop24(unsigned char *p, int hstride, int vstride, int size, int thresh, int ithresh, int hev_thresh)
+static void swebp__filterloop24(simplewebp_u8 *p, simplewebp_i32 hstride, simplewebp_i32 vstride, simplewebp_i32 size, simplewebp_i32 thresh, simplewebp_i32 ithresh, simplewebp_i32 hev_thresh)
 {
-	int thresh2 = 2 * thresh + 1;
+	simplewebp_i32 thresh2 = 2 * thresh + 1;
 
 	while (size-- > 0)
 	{
-		if (simplewebp__needsfilter2(p, hstride, thresh2, ithresh))
+		if (swebp__needsfilter2(p, hstride, thresh2, ithresh))
 		{
-			if (simplewebp__hev(p, hstride, hev_thresh))
-				simplewebp__do_filter2(p, hstride);
+			if (swebp__hev(p, hstride, hev_thresh))
+				swebp__do_filter2(p, hstride);
 			else
-				simplewebp__do_filter4(p, hstride);
+				swebp__do_filter4(p, hstride);
 		}
 
 		p += vstride;
 	}
 }
 
-static void simplewebp__vfilter16_i(unsigned char *p, int stride, int thresh, int ithresh, int hev_thresh)
+static void swebp__vfilter16_i(simplewebp_u8 *p, simplewebp_i32 stride, simplewebp_i32 thresh, simplewebp_i32 ithresh, simplewebp_i32 hev_thresh)
 {
-	int i;
+	simplewebp_i32 i;
 
 	for (i = 3; i > 0; i--)
 	{
 		p += 4 * stride;
-		simplewebp__filterloop24(p, stride, 1, 16, thresh, ithresh, hev_thresh);
+		swebp__filterloop24(p, stride, 1, 16, thresh, ithresh, hev_thresh);
 	}
 }
 
-static void simplewebp__hfilter16(unsigned char *p, int stride, int thresh, int ithresh, int hev_thresh)
+static void swebp__hfilter16(simplewebp_u8 *p, simplewebp_i32 stride, simplewebp_i32 thresh, simplewebp_i32 ithresh, simplewebp_i32 hev_thresh)
 {
-	simplewebp__filterloop26(p, 1, stride, 16, thresh, ithresh, hev_thresh);
+	swebp__filterloop26(p, 1, stride, 16, thresh, ithresh, hev_thresh);
 }
 
-static void simplewebp__vfilter8(unsigned char *u, unsigned char *v, int stride, int thresh, int ithresh, int hev_thresh)
+static void swebp__vfilter8(simplewebp_u8 *u, simplewebp_u8 *v, simplewebp_i32 stride, simplewebp_i32 thresh, simplewebp_i32 ithresh, simplewebp_i32 hev_thresh)
 {
-	simplewebp__filterloop26(u, stride, 1, 8, thresh, ithresh, hev_thresh);
-	simplewebp__filterloop26(v, stride, 1, 8, thresh, ithresh, hev_thresh);
+	swebp__filterloop26(u, stride, 1, 8, thresh, ithresh, hev_thresh);
+	swebp__filterloop26(v, stride, 1, 8, thresh, ithresh, hev_thresh);
 }
 
-static void simplewebp__vfilter8_i(unsigned char *u, unsigned char *v, int stride, int thresh, int ithresh, int hev_thresh)
+static void swebp__vfilter8_i(simplewebp_u8 *u, simplewebp_u8 *v, simplewebp_i32 stride, simplewebp_i32 thresh, simplewebp_i32 ithresh, simplewebp_i32 hev_thresh)
 {
-	simplewebp__filterloop24(u + 4 * stride, stride, 1, 8, thresh, ithresh, hev_thresh);
-	simplewebp__filterloop24(v + 4 * stride, stride, 1, 8, thresh, ithresh, hev_thresh);
+	swebp__filterloop24(u + 4 * stride, stride, 1, 8, thresh, ithresh, hev_thresh);
+	swebp__filterloop24(v + 4 * stride, stride, 1, 8, thresh, ithresh, hev_thresh);
 }
 
-static int simplewebp__needsfilter(const unsigned char *p, int step, int t)
+static simplewebp_bool swebp__needsfilter(const simplewebp_u8 *p, simplewebp_i32 step, simplewebp_i32 t)
 {
-	int p1, p0, q0, q1;
+	simplewebp_i32 p1, p0, q0, q1;
 
 	p1 =  p[-2 * step];
 	p0 = p[-step];
 	q0 = p[0];
 	q1 = p[step];
-	return (4 * simplewebp__kabs0[p0 - q0] + simplewebp__kabs0[p1 - q1]) <= t;
+	return (4 * swebp__kabs0[p0 - q0] + swebp__kabs0[p1 - q1]) <= t;
 }
 
-static void simplewebp__simple_vfilter16(unsigned char *p, int stride, int thresh)
+static void swebp__simple_vfilter16(simplewebp_u8 *p, simplewebp_i32 stride, simplewebp_i32 thresh)
 {
-	int i, thresh2;
+	simplewebp_i32 i, thresh2;
 
 	thresh2 = 2 * thresh + 1;
 	for (i = 0; i < 16; i++)
 	{
-		if (simplewebp__needsfilter(p + i, stride, thresh2))
-			simplewebp__do_filter2(p + i, stride);
+		if (swebp__needsfilter(p + i, stride, thresh2))
+			swebp__do_filter2(p + i, stride);
 	}
 }
 
-static void simplewebp__simple_hfilter16(unsigned char *p, int stride, int thresh)
+static void swebp__simple_hfilter16(simplewebp_u8 *p, simplewebp_i32 stride, simplewebp_i32 thresh)
 {
-	int i, thresh2;
-	unsigned char *target;
+	simplewebp_i32 i, thresh2;
+	simplewebp_u8 *target;
 
 	thresh2 = 2 * thresh + 1;
 	for (i = 0; i < 16; i++)
 	{
 		target = p + i * stride;
 
-		if (simplewebp__needsfilter(target, 1, thresh2))
-			simplewebp__do_filter2(target, 1);
+		if (swebp__needsfilter(target, 1, thresh2))
+			swebp__do_filter2(target, 1);
 	}
 }
 
-static void simplewebp__simple_vfilter16_i(unsigned char *p, int stride, int thresh)
+static void swebp__simple_vfilter16_i(simplewebp_u8 *p, simplewebp_i32 stride, simplewebp_i32 thresh)
 {
-	int k;
+	simplewebp_i32 k;
 
 	for (k = 3; k > 0; k--)
 	{
 		p += 4 * stride;
-		simplewebp__simple_vfilter16(p, stride, thresh);
+		swebp__simple_vfilter16(p, stride, thresh);
 	}
 }
 
-static void simplewebp__simple_hfilter16_i(unsigned char *p, int stride, int thresh)
+static void swebp__simple_hfilter16_i(simplewebp_u8 *p, simplewebp_i32 stride, simplewebp_i32 thresh)
 {
-	int k;
+	simplewebp_i32 k;
 
 	for (k = 3; k > 0; k--)
 	{
 		p += 4;
-		simplewebp__simple_hfilter16(p, stride, thresh);
+		swebp__simple_hfilter16(p, stride, thresh);
 	}
 }
 
-static void simplewebp__hfilter16_i(unsigned char *p, int stride, int thresh, int ithresh, int hev_thresh)
+static void swebp__hfilter16_i(simplewebp_u8 *p, simplewebp_i32 stride, simplewebp_i32 thresh, simplewebp_i32 ithresh, simplewebp_i32 hev_thresh)
 {
-	int k;
+	simplewebp_i32 k;
 
 	for (k = 3; k > 0; k--)
 	{
 		p += 4;
-		simplewebp__filterloop24(p, 1, stride, 16, thresh, ithresh, hev_thresh);
+		swebp__filterloop24(p, 1, stride, 16, thresh, ithresh, hev_thresh);
 	}
 }
 
-static void simplewebp__hfilter8(unsigned char *u, unsigned char *v, int stride, int thresh, int ithresh, int hev_thresh)
+static void swebp__hfilter8(simplewebp_u8 *u, simplewebp_u8 *v, simplewebp_i32 stride, simplewebp_i32 thresh, simplewebp_i32 ithresh, simplewebp_i32 hev_thresh)
 {
-	simplewebp__filterloop26(u, 1, stride, 8, thresh, ithresh, hev_thresh);
-	simplewebp__filterloop26(v, 1, stride, 8, thresh, ithresh, hev_thresh);
+	swebp__filterloop26(u, 1, stride, 8, thresh, ithresh, hev_thresh);
+	swebp__filterloop26(v, 1, stride, 8, thresh, ithresh, hev_thresh);
 }
 
-static void simplewebp__hfilter8_i(unsigned char *u, unsigned char *v, int stride, int thresh, int ithresh, int hev_thresh)
+static void swebp__hfilter8_i(simplewebp_u8 *u, simplewebp_u8 *v, simplewebp_i32 stride, simplewebp_i32 thresh, simplewebp_i32 ithresh, simplewebp_i32 hev_thresh)
 {
-	simplewebp__filterloop24(u + 4, 1, stride, 8, thresh, ithresh, hev_thresh);
-	simplewebp__filterloop24(v + 4, 1, stride, 8, thresh, ithresh, hev_thresh);
+	swebp__filterloop24(u + 4, 1, stride, 8, thresh, ithresh, hev_thresh);
+	swebp__filterloop24(v + 4, 1, stride, 8, thresh, ithresh, hev_thresh);
 }
 
 /* DC */
-static void simplewebp__predluma4_0(unsigned char *out)
+static void swebp__predluma4_0(simplewebp_u8 *out)
 {
-	unsigned int dc;
-	int i;
+	simplewebp_u32 dc;
+	simplewebp_i32 i;
 
 	dc = 4;
 	for (i = 0; i < 4; i++)
@@ -2383,13 +2411,13 @@ static void simplewebp__predluma4_0(unsigned char *out)
 		memset(out + i * 32, dc, 4);
 }
 
-static void simplewebp__truemotion(unsigned char *out, int size)
+static void swebp__truemotion(simplewebp_u8 *out, simplewebp_i32 size)
 {
-	const unsigned char *top, *clip0, *clip;
-	int x, y;
+	const simplewebp_u8 *top, *clip0, *clip;
+	simplewebp_i32 x, y;
 
 	top = out - 32;
-	clip0 = simplewebp__kclip1 - top[-1];
+	clip0 = swebp__kclip1 - top[-1];
 
 	for (y = 0; y < size; y++)
 	{
@@ -2403,56 +2431,56 @@ static void simplewebp__truemotion(unsigned char *out, int size)
 }
 
 /* TM4 */
-static void simplewebp__predluma4_1(unsigned char *out)
+static void swebp__predluma4_1(simplewebp_u8 *out)
 {
-	simplewebp__truemotion(out, 4);
+	swebp__truemotion(out, 4);
 }
 
-static unsigned char simplewebp__avg3(unsigned int a, unsigned int b, unsigned int c)
+static simplewebp_u8 swebp__avg3(simplewebp_u32 a, simplewebp_u32 b, simplewebp_u32 c)
 {
-	return (unsigned char) ((a + 2 * b + c + 2) >> 2);
+	return (simplewebp_u8) ((a + 2 * b + c + 2) >> 2);
 }
 
 /* Vertical */
-static void simplewebp__predluma4_2(unsigned char *out)
+static void swebp__predluma4_2(simplewebp_u8 *out)
 {
-	const unsigned char *top;
-	unsigned char vals[4], i;
+	const simplewebp_u8 *top;
+	simplewebp_u8 vals[4], i;
 
 	top = out - 32;
 
 	for (i = 0; i < 4; i++)
-		vals[i] = simplewebp__avg3(top[i - 1], top[i], top[i + 1]);
+		vals[i] = swebp__avg3(top[i - 1], top[i], top[i + 1]);
 	for (i = 0; i < 4; i++)
 		memcpy(out + i * 32, vals, sizeof(vals));
 }
 
-static void simplewebp__from_uint32(unsigned char *out, unsigned int value)
+static void swebp__from_uint32(simplewebp_u8 *out, simplewebp_u32 value)
 {
 	/* Little endian */
-	out[0] = (unsigned char) value;
-	out[1] = (unsigned char) (value >> 8);
-	out[2] = (unsigned char) (value >> 16);
-	out[3] = (unsigned char) (value >> 24);
+	out[0] = (simplewebp_u8) value;
+	out[1] = (simplewebp_u8) (value >> 8);
+	out[2] = (simplewebp_u8) (value >> 16);
+	out[3] = (simplewebp_u8) (value >> 24);
 }
 
 /* Horizontal*/
-static void simplewebp__predluma4_3(unsigned char *out)
+static void swebp__predluma4_3(simplewebp_u8 *out)
 {
-	int vals[5], i;
+	simplewebp_i32 vals[5], i;
 	for (i = -1; i < 4; i++)
 		vals[i + 1] = out[-1 + i * 32];
 
-	simplewebp__from_uint32(out, 0x01010101U * simplewebp__avg3(vals[0], vals[1], vals[2]));
-	simplewebp__from_uint32(out + 32, 0x01010101U * simplewebp__avg3(vals[1], vals[2], vals[3]));
-	simplewebp__from_uint32(out + 64, 0x01010101U * simplewebp__avg3(vals[2], vals[3], vals[4]));
-	simplewebp__from_uint32(out + 96, 0x01010101U * simplewebp__avg3(vals[3], vals[4], vals[4]));
+	swebp__from_uint32(out, 0x01010101U * swebp__avg3(vals[0], vals[1], vals[2]));
+	swebp__from_uint32(out + 32, 0x01010101U * swebp__avg3(vals[1], vals[2], vals[3]));
+	swebp__from_uint32(out + 64, 0x01010101U * swebp__avg3(vals[2], vals[3], vals[4]));
+	swebp__from_uint32(out + 96, 0x01010101U * swebp__avg3(vals[3], vals[4], vals[4]));
 }
 
 /* Right Down */
-static void simplewebp__predluma4_4(unsigned char *out)
+static void swebp__predluma4_4(simplewebp_u8 *out)
 {
-	unsigned int i, j, k, l, x, a, b, c, d;
+	simplewebp_u32 i, j, k, l, x, a, b, c, d;
 
 	i = out[-1];
 	j = out[-1 + 1 * 32];
@@ -2464,24 +2492,24 @@ static void simplewebp__predluma4_4(unsigned char *out)
 	c = out[2 - 32];
 	d = out[3 - 32];
 
-	out[3 * 32 + 0] = simplewebp__avg3(j, k, l);
-	out[3 * 32 + 1] = out[2 * 32 + 0] = simplewebp__avg3(i, j, k);
-	out[3 * 32 + 2] = out[2 * 32 + 1] = out[1 * 32 + 0] = simplewebp__avg3(x, i, j);
-	out[3 * 32 + 3] = out[2 * 32 + 2] = out[1 * 32 + 1] = out[0 * 32 + 0] = simplewebp__avg3(a, x, i);
-	out[2 * 32 + 3] = out[1 * 32 + 2] = out[0 * 32 + 1] = simplewebp__avg3(b, a, x);
-	out[1 * 32 + 3] = out[0 * 32 + 2] = simplewebp__avg3(c, b, a);
-	out[0 * 32 + 3] = simplewebp__avg3(d, c, b);
+	out[3 * 32 + 0] = swebp__avg3(j, k, l);
+	out[3 * 32 + 1] = out[2 * 32 + 0] = swebp__avg3(i, j, k);
+	out[3 * 32 + 2] = out[2 * 32 + 1] = out[1 * 32 + 0] = swebp__avg3(x, i, j);
+	out[3 * 32 + 3] = out[2 * 32 + 2] = out[1 * 32 + 1] = out[0 * 32 + 0] = swebp__avg3(a, x, i);
+	out[2 * 32 + 3] = out[1 * 32 + 2] = out[0 * 32 + 1] = swebp__avg3(b, a, x);
+	out[1 * 32 + 3] = out[0 * 32 + 2] = swebp__avg3(c, b, a);
+	out[0 * 32 + 3] = swebp__avg3(d, c, b);
 }
 
-static unsigned char simplewebp__avg2(unsigned int a, unsigned int b)
+static simplewebp_u8 swebp__avg2(simplewebp_u32 a, simplewebp_u32 b)
 {
-	return (unsigned char) ((a + b + 1) >> 1);
+	return (simplewebp_u8) ((a + b + 1) >> 1);
 }
 
 /* Vertical-Right */
-static void simplewebp__predluma4_5(unsigned char *out)
+static void swebp__predluma4_5(simplewebp_u8 *out)
 {
-	unsigned int i, j, k, x, a, b, c, d;
+	simplewebp_u32 i, j, k, x, a, b, c, d;
 
 	i = out[-1];
 	j = out[-1 + 1 * 32];
@@ -2492,22 +2520,22 @@ static void simplewebp__predluma4_5(unsigned char *out)
 	c = out[2 - 32];
 	d = out[3 - 32];
 
-	out[0 * 32 + 0] = out[2 * 32 + 1] = simplewebp__avg2(x, a);
-	out[0 * 32 + 1] = out[2 * 32 + 2] = simplewebp__avg2(a, b);
-	out[0 * 32 + 2] = out[2 * 32 + 3] = simplewebp__avg2(b, c);
-	out[0 * 32 + 3] = simplewebp__avg2(c, d);
-	out[3 * 32 + 0] = simplewebp__avg3(k, j, i);
-	out[2 * 32 + 0] = simplewebp__avg3(j, i, x);
-	out[1 * 32 + 0] = out[3 * 32 + 1] = simplewebp__avg3(i, x, a);
-	out[1 * 32 + 1] = out[3 * 32 + 2] = simplewebp__avg3(x, a, b);
-	out[1 * 32 + 2] = out[3 * 32 + 3] = simplewebp__avg3(a, b, c);
-	out[1 * 32 + 3] = simplewebp__avg3(b, c, d);
+	out[0 * 32 + 0] = out[2 * 32 + 1] = swebp__avg2(x, a);
+	out[0 * 32 + 1] = out[2 * 32 + 2] = swebp__avg2(a, b);
+	out[0 * 32 + 2] = out[2 * 32 + 3] = swebp__avg2(b, c);
+	out[0 * 32 + 3] = swebp__avg2(c, d);
+	out[3 * 32 + 0] = swebp__avg3(k, j, i);
+	out[2 * 32 + 0] = swebp__avg3(j, i, x);
+	out[1 * 32 + 0] = out[3 * 32 + 1] = swebp__avg3(i, x, a);
+	out[1 * 32 + 1] = out[3 * 32 + 2] = swebp__avg3(x, a, b);
+	out[1 * 32 + 2] = out[3 * 32 + 3] = swebp__avg3(a, b, c);
+	out[1 * 32 + 3] = swebp__avg3(b, c, d);
 }
 
 /* Left Down */
-static void simplewebp__predluma4_6(unsigned char *out)
+static void swebp__predluma4_6(simplewebp_u8 *out)
 {
-	int a, b, c, d, e, f, g, h;
+	simplewebp_i32 a, b, c, d, e, f, g, h;
 
 	a = out[-32];
 	b = out[-31];
@@ -2518,19 +2546,19 @@ static void simplewebp__predluma4_6(unsigned char *out)
 	g = out[-26];
 	h = out[-25];
 
-	out[0 * 32 + 0] = simplewebp__avg3(a, b, c);
-	out[0 * 32 + 1] = out[1 * 32 + 0] = simplewebp__avg3(b, c, d);
-	out[0 * 32 + 2] = out[1 * 32 + 1] = out[2 * 32 + 0] = simplewebp__avg3(c, d, e);
-	out[0 * 32 + 3] = out[1 * 32 + 2] = out[2 * 32 + 1] = out[3 * 32 + 0] = simplewebp__avg3(d, e, f);
-	out[1 * 32 + 3] = out[2 * 32 + 2] = out[3 * 32 + 1] = simplewebp__avg3(e, f, g);
-	out[2 * 32 + 3] = out[3 * 32 + 2] = simplewebp__avg3(f, g, h);
-	out[3 * 32 + 3] = simplewebp__avg3(g, h, h);
+	out[0 * 32 + 0] = swebp__avg3(a, b, c);
+	out[0 * 32 + 1] = out[1 * 32 + 0] = swebp__avg3(b, c, d);
+	out[0 * 32 + 2] = out[1 * 32 + 1] = out[2 * 32 + 0] = swebp__avg3(c, d, e);
+	out[0 * 32 + 3] = out[1 * 32 + 2] = out[2 * 32 + 1] = out[3 * 32 + 0] = swebp__avg3(d, e, f);
+	out[1 * 32 + 3] = out[2 * 32 + 2] = out[3 * 32 + 1] = swebp__avg3(e, f, g);
+	out[2 * 32 + 3] = out[3 * 32 + 2] = swebp__avg3(f, g, h);
+	out[3 * 32 + 3] = swebp__avg3(g, h, h);
 }
 
 /* Vertical-Left */
-static void simplewebp__predluma4_7(unsigned char *out)
+static void swebp__predluma4_7(simplewebp_u8 *out)
 {
-	int a, b, c, d, e, f, g, h;
+	simplewebp_i32 a, b, c, d, e, f, g, h;
 
 	a = out[-32];
 	b = out[-31];
@@ -2541,22 +2569,22 @@ static void simplewebp__predluma4_7(unsigned char *out)
 	g = out[-26];
 	h = out[-25];
 
-	out[0 * 32 + 0] = simplewebp__avg2(a, b);
-	out[0 * 32 + 1] = out[2 * 32 + 0] = simplewebp__avg2(b, c);
-	out[0 * 32 + 2] = out[2 * 32 + 1] = simplewebp__avg2(c, d);
-	out[0 * 32 + 3] = out[2 * 32 + 2] = simplewebp__avg2(d, e);
-	out[1 * 32 + 0] = simplewebp__avg3(a, b, c);
-	out[1 * 32 + 1] = out[3 * 32 + 0] = simplewebp__avg3(b, c, d);
-	out[1 * 32 + 2] = out[3 * 32 + 1] = simplewebp__avg3(c, d, e);
-	out[1 * 32 + 3] = out[3 * 32 + 2] = simplewebp__avg3(d, e, f);
-	out[2 * 32 + 3] = simplewebp__avg3(e, f, g);
-	out[3 * 32 + 3] = simplewebp__avg3(f, g, h);
+	out[0 * 32 + 0] = swebp__avg2(a, b);
+	out[0 * 32 + 1] = out[2 * 32 + 0] = swebp__avg2(b, c);
+	out[0 * 32 + 2] = out[2 * 32 + 1] = swebp__avg2(c, d);
+	out[0 * 32 + 3] = out[2 * 32 + 2] = swebp__avg2(d, e);
+	out[1 * 32 + 0] = swebp__avg3(a, b, c);
+	out[1 * 32 + 1] = out[3 * 32 + 0] = swebp__avg3(b, c, d);
+	out[1 * 32 + 2] = out[3 * 32 + 1] = swebp__avg3(c, d, e);
+	out[1 * 32 + 3] = out[3 * 32 + 2] = swebp__avg3(d, e, f);
+	out[2 * 32 + 3] = swebp__avg3(e, f, g);
+	out[3 * 32 + 3] = swebp__avg3(f, g, h);
 }
 
 /* Horizontal-Down */
-static void simplewebp__predluma4_8(unsigned char *out)
+static void swebp__predluma4_8(simplewebp_u8 *out)
 {
-	unsigned int i, j, k, l, x, a, b, c;
+	simplewebp_u32 i, j, k, l, x, a, b, c;
 
 	i = out[-1];
 	j = out[-1 + 1 * 32];
@@ -2567,115 +2595,115 @@ static void simplewebp__predluma4_8(unsigned char *out)
 	b = out[1 - 32];
 	c = out[2 - 32];
 	
-	out[0 * 32 + 0] = out[1 * 32 + 2] = simplewebp__avg2(i, x);
-	out[1 * 32 + 0] = out[2 * 32 + 2] = simplewebp__avg2(j, i);
-	out[2 * 32 + 0] = out[3 * 32 + 2] = simplewebp__avg2(k, j);
-	out[3 * 32 + 0] = simplewebp__avg2(l, k);
-	out[0 * 32 + 3] = simplewebp__avg3(a, b, c);
-	out[0 * 32 + 2] = simplewebp__avg3(x, a, b);
-	out[0 * 32 + 1] = out[1 * 32 + 3] = simplewebp__avg3(i, x, a);
-	out[1 * 32 + 1] = out[2 * 32 + 3] = simplewebp__avg3(j, i, x);
-	out[2 * 32 + 1] = out[3 * 32 + 3] = simplewebp__avg3(k, j, i);
-	out[3 * 32 + 1] = simplewebp__avg3(l, k, j);
+	out[0 * 32 + 0] = out[1 * 32 + 2] = swebp__avg2(i, x);
+	out[1 * 32 + 0] = out[2 * 32 + 2] = swebp__avg2(j, i);
+	out[2 * 32 + 0] = out[3 * 32 + 2] = swebp__avg2(k, j);
+	out[3 * 32 + 0] = swebp__avg2(l, k);
+	out[0 * 32 + 3] = swebp__avg3(a, b, c);
+	out[0 * 32 + 2] = swebp__avg3(x, a, b);
+	out[0 * 32 + 1] = out[1 * 32 + 3] = swebp__avg3(i, x, a);
+	out[1 * 32 + 1] = out[2 * 32 + 3] = swebp__avg3(j, i, x);
+	out[2 * 32 + 1] = out[3 * 32 + 3] = swebp__avg3(k, j, i);
+	out[3 * 32 + 1] = swebp__avg3(l, k, j);
 }
 
 /* Horizontal-Up */
-static void simplewebp__predluma4_9(unsigned char *out)
+static void swebp__predluma4_9(simplewebp_u8 *out)
 {
-	unsigned int i, j, k, l;
+	simplewebp_u32 i, j, k, l;
 
 	i = out[-1];
 	j = out[-1 + 1 * 32];
 	k = out[-1 + 2 * 32];
 	l = out[-1 + 3 * 32];
 
-	out[0 * 32 + 0] = simplewebp__avg2(i, j);
-	out[0 * 32 + 2] = out[1 * 32 + 0] = simplewebp__avg2(j, k);
-	out[1 * 32 + 2] = out[2 * 32 + 0] = simplewebp__avg2(k, l);
-	out[0 * 32 + 1] = simplewebp__avg3(i, j, k);
-	out[0 * 32 + 3] = out[1 * 32 + 1] = simplewebp__avg3(j, k, l);
-	out[1 * 32 + 3] = out[2 * 32 + 1] = simplewebp__avg3(k, l, l);
+	out[0 * 32 + 0] = swebp__avg2(i, j);
+	out[0 * 32 + 2] = out[1 * 32 + 0] = swebp__avg2(j, k);
+	out[1 * 32 + 2] = out[2 * 32 + 0] = swebp__avg2(k, l);
+	out[0 * 32 + 1] = swebp__avg3(i, j, k);
+	out[0 * 32 + 3] = out[1 * 32 + 1] = swebp__avg3(j, k, l);
+	out[1 * 32 + 3] = out[2 * 32 + 1] = swebp__avg3(k, l, l);
 	out[2 * 32 + 3] = out[2 * 32 + 2] =
 	out[3 * 32 + 0] = out[3 * 32 + 1] =
 	out[3 * 32 + 2] = out[3 * 32 + 3] = l;
 }
 
-static void simplewebp__predluma4(unsigned char num, unsigned char *out)
+static void swebp__predluma4(simplewebp_u8 num, simplewebp_u8 *out)
 {
 	switch (num)
 	{
 		case 0:
-			simplewebp__predluma4_0(out);
+			swebp__predluma4_0(out);
 			break;
 		case 1:
-			simplewebp__predluma4_1(out);
+			swebp__predluma4_1(out);
 			break;
 		case 2:
-			simplewebp__predluma4_2(out);
+			swebp__predluma4_2(out);
 			break;
 		case 3:
-			simplewebp__predluma4_3(out);
+			swebp__predluma4_3(out);
 			break;
 		case 4:
-			simplewebp__predluma4_4(out);
+			swebp__predluma4_4(out);
 			break;
 		case 5:
-			simplewebp__predluma4_5(out);
+			swebp__predluma4_5(out);
 			break;
 		case 6:
-			simplewebp__predluma4_6(out);
+			swebp__predluma4_6(out);
 			break;
 		case 7:
-			simplewebp__predluma4_7(out);
+			swebp__predluma4_7(out);
 			break;
 		case 8:
-			simplewebp__predluma4_8(out);
+			swebp__predluma4_8(out);
 			break;
 		case 9:
-			simplewebp__predluma4_9(out);
+			swebp__predluma4_9(out);
 			break;
 		default:
 			break;
 	}
 }
 
-static void simplewebp__put16(int v, unsigned char *out)
+static void swebp__put16(simplewebp_i32 v, simplewebp_u8 *out)
 {
-	int j;
+	simplewebp_i32 j;
 	for (j = 0; j < 16; j++)
 		memset(out + j * 32, v, 16);
 }
 
 /* DC */
-static void simplewebp__predluma16_0(unsigned char *out)
+static void swebp__predluma16_0(simplewebp_u8 *out)
 {
-	int dc, j;
+	simplewebp_i32 dc, j;
 
 	dc = 16;
 	for (j = 0; j < 16; j++)
 		dc += out[-1 + j * 32] + out[j - 32];
 
-	simplewebp__put16(dc >> 5, out);
+	swebp__put16(dc >> 5, out);
 }
 
 /* TM */
-static void simplewebp__predluma16_1(unsigned char *out)
+static void swebp__predluma16_1(simplewebp_u8 *out)
 {
-	simplewebp__truemotion(out, 16);
+	swebp__truemotion(out, 16);
 }
 
 /* Vertical */
-static void simplewebp__predluma16_2(unsigned char *out)
+static void swebp__predluma16_2(simplewebp_u8 *out)
 {
-	int j;
+	simplewebp_i32 j;
 	for (j = 0; j < 16; j++)
 		memcpy(out + j * 32, out - 32, 16);
 }
 
 /* Horizontal */
-static void simplewebp__predluma16_3(unsigned char *out)
+static void swebp__predluma16_3(simplewebp_u8 *out)
 {
-	int j;
+	simplewebp_i32 j;
 	for (j = 16; j > 0; j--)
 	{
 		memset(out, out[-1], 16);
@@ -2684,169 +2712,169 @@ static void simplewebp__predluma16_3(unsigned char *out)
 }
 
 /* DC w/o Top */
-static void simplewebp__predluma16_4(unsigned char *out)
+static void swebp__predluma16_4(simplewebp_u8 *out)
 {
-	int dc, j;
+	simplewebp_i32 dc, j;
 
 	dc = 8;
 	for (j = 0; j < 16; j++)
 		dc += out[-1 + j * 32];
 
-	simplewebp__put16(dc >> 4, out);
+	swebp__put16(dc >> 4, out);
 }
 
 /* DC w/o Left */
-static void simplewebp__predluma16_5(unsigned char *out)
+static void swebp__predluma16_5(simplewebp_u8 *out)
 {
-	int dc, j;
+	simplewebp_i32 dc, j;
 
 	dc = 8;
 	for (j = 0; j < 16; j++)
 		dc += out[j - 32];
 
-	simplewebp__put16(dc >> 4, out);
+	swebp__put16(dc >> 4, out);
 }
 
 /* DC w/o Top Left */
-static void simplewebp__predluma16_6(unsigned char *out)
+static void swebp__predluma16_6(simplewebp_u8 *out)
 {
-	simplewebp__put16(128, out);
+	swebp__put16(128, out);
 }
 
-static void simplewebp__predluma16(unsigned char num, unsigned char *out)
+static void swebp__predluma16(simplewebp_u8 num, simplewebp_u8 *out)
 {
 	switch (num)
 	{
 		case 0:
-			simplewebp__predluma16_0(out);
+			swebp__predluma16_0(out);
 			break;
 		case 1:
-			simplewebp__predluma16_1(out);
+			swebp__predluma16_1(out);
 			break;
 		case 2:
-			simplewebp__predluma16_2(out);
+			swebp__predluma16_2(out);
 			break;
 		case 3:
-			simplewebp__predluma16_3(out);
+			swebp__predluma16_3(out);
 			break;
 		case 4:
-			simplewebp__predluma16_4(out);
+			swebp__predluma16_4(out);
 			break;
 		case 5:
-			simplewebp__predluma16_5(out);
+			swebp__predluma16_5(out);
 			break;
 		case 6:
-			simplewebp__predluma16_6(out);
+			swebp__predluma16_6(out);
 			break;
 		default:
 			break;
 	}
 }
 
-static void simplewebp__put8x8uv(int value, unsigned char *out)
+static void swebp__put8x8uv(simplewebp_i32 value, simplewebp_u8 *out)
 {
-	int j;
+	simplewebp_i32 j;
 	for (j = 0; j < 8; j++)
 		memset(out + j * 32, value, 8);
 }
 
 /* DC */
-static void simplewebp__predchroma8_0(unsigned char *out)
+static void swebp__predchroma8_0(simplewebp_u8 *out)
 {
-	int dc0, i;
+	simplewebp_i32 dc0, i;
 
 	dc0 = 8;
 	for (i = 0; i < 8; i++)
 		dc0 += out[i - 32] + out[-1 + i * 32];
 
-	simplewebp__put8x8uv(dc0 >> 4, out);
+	swebp__put8x8uv(dc0 >> 4, out);
 }
 
 /* TM */
-static void simplewebp__predchroma8_1(unsigned char *out)
+static void swebp__predchroma8_1(simplewebp_u8 *out)
 {
-	simplewebp__truemotion(out, 8);
+	swebp__truemotion(out, 8);
 }
 
 /* Vertical */
-static void simplewebp__predchroma8_2(unsigned char *out)
+static void swebp__predchroma8_2(simplewebp_u8 *out)
 {
-	int j;
+	simplewebp_i32 j;
 	for (j = 0; j < 8; j++)
 		memcpy(out + j * 32, out - 32, 8);
 }
 
 /* Horizontal */
-static void simplewebp__predchroma8_3(unsigned char *out)
+static void swebp__predchroma8_3(simplewebp_u8 *out)
 {
-	int j;
+	simplewebp_i32 j;
 	for (j = 0; j < 8; j++)
 		memset(out + j * 32, out[j * 32 - 1], 8);
 }
 
 /* DC w/o Top */
-static void simplewebp__predchroma8_4(unsigned char *out)
+static void swebp__predchroma8_4(simplewebp_u8 *out)
 {
-	int dc0, i;
+	simplewebp_i32 dc0, i;
 
 	dc0 = 4;
 	for (i = 0; i < 8; i++)
 		dc0 += out[-1 + i * 32];
 
-	simplewebp__put8x8uv(dc0 >> 3, out);
+	swebp__put8x8uv(dc0 >> 3, out);
 }
 
 /* DC w/o Left */
-static void simplewebp__predchroma8_5(unsigned char *out)
+static void swebp__predchroma8_5(simplewebp_u8 *out)
 {
-	int dc0, i;
+	simplewebp_i32 dc0, i;
 
 	dc0 = 4;
 	for (i = 0; i < 8; i++)
 		dc0 += out[i - 32];
 
-	simplewebp__put8x8uv(dc0 >> 3, out);
+	swebp__put8x8uv(dc0 >> 3, out);
 }
 
 /* DC w/o Top Left */
-static void simplewebp__predchroma8_6(unsigned char *out)
+static void swebp__predchroma8_6(simplewebp_u8 *out)
 {
-	simplewebp__put8x8uv(128, out);
+	swebp__put8x8uv(128, out);
 }
 
-static void simplewebp__predchroma8(unsigned char num, unsigned char *out)
+static void swebp__predchroma8(simplewebp_u8 num, simplewebp_u8 *out)
 {
 	switch (num)
 	{
 		case 0:
-			simplewebp__predchroma8_0(out);
+			swebp__predchroma8_0(out);
 			break;
 		case 1:
-			simplewebp__predchroma8_1(out);
+			swebp__predchroma8_1(out);
 			break;
 		case 2:
-			simplewebp__predchroma8_2(out);
+			swebp__predchroma8_2(out);
 			break;
 		case 3:
-			simplewebp__predchroma8_3(out);
+			swebp__predchroma8_3(out);
 			break;
 		case 4:
-			simplewebp__predchroma8_4(out);
+			swebp__predchroma8_4(out);
 			break;
 		case 5:
-			simplewebp__predchroma8_5(out);
+			swebp__predchroma8_5(out);
 			break;
 		case 6:
-			simplewebp__predchroma8_6(out);
+			swebp__predchroma8_6(out);
 			break;
 		default:
 			break;
 	}
 }
 
-static void simplewebp__dither_combine_8x8(const unsigned char *dither, unsigned char *out, int stride)
+static void swebp__dither_combine_8x8(const simplewebp_u8 *dither, simplewebp_u8 *out, simplewebp_i32 stride)
 {
-	int i, j, delta0, delta1;
+	simplewebp_i32 i, j, delta0, delta1;
 
 	for (j = 0; j < 8; j++)
 	{
@@ -2854,7 +2882,7 @@ static void simplewebp__dither_combine_8x8(const unsigned char *dither, unsigned
 		{
 			delta0 = dither[i] - 128;
 			delta1 = (delta0 + 8) >> 4;
-			out[i] = simplewebp__clip8b(out[i] + delta1);
+			out[i] = swebp__clip8b(out[i] + delta1);
 		}
 
 		out += stride;
@@ -2863,7 +2891,7 @@ static void simplewebp__dither_combine_8x8(const unsigned char *dither, unsigned
 }
 
 /* RFC 6386 section 11.5 */
-static const unsigned char simplewebp__modes_proba[10][10][9] = {
+static const simplewebp_u8 swebp__modes_proba[10][10][9] = {
 	{ { 231, 120, 48, 89, 115, 113, 120, 152, 112 },
 		{ 152, 179, 64, 126, 170, 118, 46, 70, 95 },
 		{ 175, 69, 143, 80, 85, 82, 72, 155, 103 },
@@ -2966,7 +2994,7 @@ static const unsigned char simplewebp__modes_proba[10][10][9] = {
 		{ 112, 19, 12, 61, 195, 128, 48, 4, 24 } }
 };
 
-static const unsigned int simplewebp__random_table[55] = {
+static const simplewebp_u32 swebp__random_table[55] = {
 	0x0de15230, 0x03b31886, 0x775faccb, 0x1c88626a, 0x68385c55, 0x14b3b828,
 	0x4a85fef8, 0x49ddb84b, 0x64fcf397, 0x5c550289, 0x4a290000, 0x0d7ec1da,
 	0x5940b7ab, 0x5492577d, 0x4e19ca72, 0x38d38c69, 0x0c01ee65, 0x32a1755f,
@@ -2979,12 +3007,12 @@ static const unsigned int simplewebp__random_table[55] = {
 	0x27e5ed3c
 };
 
-static void simplewebp__random_init(struct simplewebp__random *rng, float dithering)
+static void swebp__random_init(struct swebp__random *rng, float dithering)
 {
-	memcpy(rng->tab, simplewebp__random_table, sizeof(rng->tab));
+	memcpy(rng->tab, swebp__random_table, sizeof(rng->tab));
 	rng->index1 = 0;
 	rng->index2 = 31;
-	rng->amp = (dithering < 0.0f) ? 0 : (dithering > 1.0f) ? 256 : (unsigned int) (256 * dithering);
+	rng->amp = (dithering < 0.0f) ? 0 : (dithering > 1.0f) ? 256 : (simplewebp_u32) (256 * dithering);
 }
 
 /* 
@@ -2992,9 +3020,9 @@ Returns a centered pseudo-random number with 'num_bits' amplitude.
 (uses D.Knuth's Difference-based random generator).
 'amp' is in VP8_RANDOM_DITHER_FIX fixed-point precision.
 */
-static int simplewebp__random_bits2(struct simplewebp__random *rng, int num_bits, int amp)
+static simplewebp_i32 swebp__random_bits2(struct swebp__random *rng, simplewebp_i32 num_bits, simplewebp_i32 amp)
 {
-	int diff;
+	simplewebp_i32 diff;
 
 	assert((num_bits + 8) <= 31);
 	diff = rng->tab[rng->index1];
@@ -3006,21 +3034,21 @@ static int simplewebp__random_bits2(struct simplewebp__random *rng, int num_bits
 	if (++rng->index2 == 55)
 		rng->index2 = 0;
 
-	diff = (int) ((((unsigned int) diff) << 1) >> (32 - num_bits));
+	diff = (simplewebp_i32) ((((simplewebp_u32) diff) << 1) >> (32 - num_bits));
 	diff = (diff * amp) >> 8;
 	diff += (1 << (num_bits - 1));
 	return diff;
 }
 
-static const unsigned char simplewebp__bands[17] = {
+static const simplewebp_u8 swebp__bands[17] = {
 	0, 1, 2, 3, 6, 4, 5, 6, 6, 6, 6, 6, 6, 6, 6, 7, 0
 };
 
-static simplewebp_error simplewebp__load_header_lossy(struct simplewebp__vp8_decoder *vp8d, unsigned char *buf, size_t bufsize)
+static simplewebp_error swebp__load_vp8_header(struct swebp__vp8 *vp8d, simplewebp_u8 *buf, size_t bufsize)
 {
-	struct simplewebp__segment_header *segmnt_hdr;
-	struct simplewebp__filter_header *filt_hdr;
-	struct simplewebp__bitread br;
+	struct swebp__segment_header *segmnt_hdr;
+	struct swebp__filter_header *filt_hdr;
+	struct swebp__bdec br;
 
 	/* Populate picture headers */
 	vp8d->mb_w = (vp8d->picture_header.width + 15) >> 4;
@@ -3036,32 +3064,32 @@ static simplewebp_error simplewebp__load_header_lossy(struct simplewebp__vp8_dec
 	memset(&vp8d->segment_header.filter_strength, 0, sizeof(vp8d->segment_header.filter_strength));
 
 	/* Initialize bitreader */
-	simplewebp__bitread_init(&br, buf, vp8d->frame_header.partition_length);
+	swebp__bitread_init(&br, buf, vp8d->frame_header.partition_length);
 	buf += vp8d->frame_header.partition_length;
 	bufsize -= vp8d->frame_header.partition_length;
 
 	/* Read more picture headers. This is a keyframe */
-	vp8d->picture_header.colorspace = simplewebp__bitread_getval(&br, 1);
-	vp8d->picture_header.clamp_type = simplewebp__bitread_getval(&br, 1);
+	vp8d->picture_header.colorspace = swebp__bitread_getval(&br, 1);
+	vp8d->picture_header.clamp_type = swebp__bitread_getval(&br, 1);
 
 	/* Parse segment header */
 	segmnt_hdr = &vp8d->segment_header;
-	segmnt_hdr->use_segment = simplewebp__bitread_getval(&br, 1);
+	segmnt_hdr->use_segment = swebp__bitread_getval(&br, 1);
 	if (segmnt_hdr->use_segment)
 	{
-		int s;
-		segmnt_hdr->update_map = simplewebp__bitread_getval(&br, 1);
+		simplewebp_i32 s;
+		segmnt_hdr->update_map = swebp__bitread_getval(&br, 1);
 
-		if (simplewebp__bitread_getval(&br, 1) /* update data */)
+		if (swebp__bitread_getval(&br, 1) /* update data */)
 		{
-			segmnt_hdr->absolute_delta = simplewebp__bitread_getval(&br, 1);
+			segmnt_hdr->absolute_delta = swebp__bitread_getval(&br, 1);
 			for (s = 0; s < 4; s++)
-				segmnt_hdr->quantizer[s] = simplewebp__bitread_getval(&br, 1)
-					? simplewebp__bitread_getvalsigned(&br, 7)
+				segmnt_hdr->quantizer[s] = swebp__bitread_getval(&br, 1)
+					? swebp__bitread_getvalsigned(&br, 7)
 					: 0;
 			for (s = 0; s < 4; s++)
-				segmnt_hdr->filter_strength[s] = simplewebp__bitread_getval(&br, 1)
-					? simplewebp__bitread_getvalsigned(&br, 6)
+				segmnt_hdr->filter_strength[s] = swebp__bitread_getval(&br, 1)
+					? swebp__bitread_getvalsigned(&br, 6)
 					: 0;
 			
 		}
@@ -3069,8 +3097,8 @@ static simplewebp_error simplewebp__load_header_lossy(struct simplewebp__vp8_dec
 		if (segmnt_hdr->update_map)
 		{
 			for (s = 0; s < 3; s++)
-				vp8d->proba.segments[s] = simplewebp__bitread_getval(&br, 1)
-					? simplewebp__bitread_getval(&br, 8)
+				vp8d->proba.segments[s] = swebp__bitread_getval(&br, 1)
+					? swebp__bitread_getval(&br, 8)
 					: 255;
 		}
 	}
@@ -3082,27 +3110,27 @@ static simplewebp_error simplewebp__load_header_lossy(struct simplewebp__vp8_dec
 
 	/* Parse filters */
 	filt_hdr = &vp8d->filter_header;
-	filt_hdr->simple = simplewebp__bitread_getval(&br, 1);
-	filt_hdr->level = simplewebp__bitread_getval(&br, 6);
-	filt_hdr->sharpness = simplewebp__bitread_getval(&br, 3);
-	filt_hdr->use_lf_delta = simplewebp__bitread_getval(&br, 1);
+	filt_hdr->simple = swebp__bitread_getval(&br, 1);
+	filt_hdr->level = swebp__bitread_getval(&br, 6);
+	filt_hdr->sharpness = swebp__bitread_getval(&br, 3);
+	filt_hdr->use_lf_delta = swebp__bitread_getval(&br, 1);
 
 	if (filt_hdr->use_lf_delta)
 	{
-		if (simplewebp__bitread_getval(&br, 1) /* update lf-delta? */)
+		if (swebp__bitread_getval(&br, 1) /* update lf-delta? */)
 		{
-			int i;
+			simplewebp_i32 i;
 			
 			for (i = 0; i < 4; i++)
 			{
-				if (simplewebp__bitread_getval(&br, 1))
-					filt_hdr->ref_lf_delta[i] = simplewebp__bitread_getvalsigned(&br, 6);
+				if (swebp__bitread_getval(&br, 1))
+					filt_hdr->ref_lf_delta[i] = swebp__bitread_getvalsigned(&br, 6);
 			}
 
 			for (i = 0; i < 4; i++)
 			{
-				if (simplewebp__bitread_getval(&br, 1))
-					filt_hdr->ref_lf_delta[i] = simplewebp__bitread_getvalsigned(&br, 6);
+				if (swebp__bitread_getval(&br, 1))
+					filt_hdr->ref_lf_delta[i] = swebp__bitread_getvalsigned(&br, 6);
 			}
 		}
 	}
@@ -3114,14 +3142,14 @@ static simplewebp_error simplewebp__load_header_lossy(struct simplewebp__vp8_dec
 
 	/* Parse partitions */
 	{
-		unsigned char *sz, *buf_end, *part_start;
+		simplewebp_u8 *sz, *buf_end, *part_start;
 		size_t size_left, last_part, p;
 
 		sz = buf;
 		buf_end = buf + bufsize;
 		size_left = bufsize;
 
-		last_part = vp8d->nparts_minus_1 = (1 << simplewebp__bitread_getval(&br, 2)) - 1;
+		last_part = vp8d->nparts_minus_1 = (1 << swebp__bitread_getval(&br, 2)) - 1;
 		if (3 * last_part > bufsize)
 			return SIMPLEWEBP_CORRUPT_ERROR;
 
@@ -3130,45 +3158,45 @@ static simplewebp_error simplewebp__load_header_lossy(struct simplewebp__vp8_dec
 
 		for (p = 0; p < last_part; p++)
 		{
-			size_t psize = simplewebp__to_uint24(sz);
+			size_t psize = swebp__to_uint24(sz);
 			if (psize > size_left)
 				psize = size_left;
 
-			simplewebp__bitread_init(vp8d->parts + p, part_start, psize);
+			swebp__bitread_init(vp8d->parts + p, part_start, psize);
 			part_start += psize;
 			size_left -= psize;
 			sz += 3;
 		}
 
-		simplewebp__bitread_init(vp8d->parts + last_part, part_start, size_left);
+		swebp__bitread_init(vp8d->parts + last_part, part_start, size_left);
 		if (part_start >= buf_end)
 			return SIMPLEWEBP_CORRUPT_ERROR;
 	}
 
 	/* Parse quantizer */
 	{
-		int base_q0, dqy1_dc, dqy2_dc, dqy2_ac, dquv_dc, dquv_ac, i;
-		base_q0 = simplewebp__bitread_getval(&br, 7);
-		dqy1_dc = simplewebp__bitread_getval(&br, 1)
-			? simplewebp__bitread_getvalsigned(&br, 4)
+		simplewebp_i32 base_q0, dqy1_dc, dqy2_dc, dqy2_ac, dquv_dc, dquv_ac, i;
+		base_q0 = swebp__bitread_getval(&br, 7);
+		dqy1_dc = swebp__bitread_getval(&br, 1)
+			? swebp__bitread_getvalsigned(&br, 4)
 			: 0;
-		dqy2_dc = simplewebp__bitread_getval(&br, 1)
-			? simplewebp__bitread_getvalsigned(&br, 4)
+		dqy2_dc = swebp__bitread_getval(&br, 1)
+			? swebp__bitread_getvalsigned(&br, 4)
 			: 0;
-		dqy2_ac = simplewebp__bitread_getval(&br, 1)
-			? simplewebp__bitread_getvalsigned(&br, 4)
+		dqy2_ac = swebp__bitread_getval(&br, 1)
+			? swebp__bitread_getvalsigned(&br, 4)
 			: 0;
-		dquv_dc = simplewebp__bitread_getval(&br, 1)
-			? simplewebp__bitread_getvalsigned(&br, 4)
+		dquv_dc = swebp__bitread_getval(&br, 1)
+			? swebp__bitread_getvalsigned(&br, 4)
 			: 0;
-		dquv_ac = simplewebp__bitread_getval(&br, 1)
-			? simplewebp__bitread_getvalsigned(&br, 4)
+		dquv_ac = swebp__bitread_getval(&br, 1)
+			? swebp__bitread_getvalsigned(&br, 4)
 			: 0;
 
 		for (i = 0; i < 4; i++)
 		{
-			int q;
-			struct simplewebp__quantmat *m;
+			simplewebp_i32 q;
+			struct swebp__quantmat *m;
 
 			if (segmnt_hdr->use_segment)
 				q = segmnt_hdr->quantizer[i] + (!segmnt_hdr->absolute_delta) * base_q0;
@@ -3184,28 +3212,28 @@ static simplewebp_error simplewebp__load_header_lossy(struct simplewebp__vp8_dec
 			}
 
 			m = vp8d->dqm + i;
-			m->y1_mat[0] = simplewebp__dctab[simplewebp__clip(q + dqy1_dc, 127)];
-			m->y1_mat[1] = simplewebp__actab[simplewebp__clip(q + 0,       127)];
+			m->y1_mat[0] = swebp__dctab[swebp__clip(q + dqy1_dc, 127)];
+			m->y1_mat[1] = swebp__actab[swebp__clip(q + 0,       127)];
 
-			m->y2_mat[0] = simplewebp__dctab[simplewebp__clip(q + dqy2_dc, 127)] * 2;
-			m->y2_mat[1] = (simplewebp__actab[simplewebp__clip(q + dqy2_ac, 127)] * 101581) >> 16;
+			m->y2_mat[0] = swebp__dctab[swebp__clip(q + dqy2_dc, 127)] * 2;
+			m->y2_mat[1] = (swebp__actab[swebp__clip(q + dqy2_ac, 127)] * 101581) >> 16;
 			if (m->y2_mat[1] < 8)
 				m->y2_mat[1] = 8;
 
-			m->uv_mat[0] = simplewebp__dctab[simplewebp__clip(q + dquv_dc, 117)];
-			m->uv_mat[1] = simplewebp__actab[simplewebp__clip(q + dquv_ac, 127)];
+			m->uv_mat[0] = swebp__dctab[swebp__clip(q + dquv_dc, 117)];
+			m->uv_mat[1] = swebp__actab[swebp__clip(q + dquv_ac, 127)];
 
 			m->uv_quant = q + dquv_ac;
 		}
 	}
 
 	/* Ignore "update proba" */
-	simplewebp__bitread_getval(&br, 1);
+	swebp__bitread_getval(&br, 1);
 
 	/* Parse proba */
 	{
-		struct simplewebp__proba *proba;
-		int t, b, c, p, v;
+		struct swebp__proba *proba;
+		simplewebp_i32 t, b, c, p, v;
 
 		proba = &vp8d->proba;
 
@@ -3217,21 +3245,21 @@ static simplewebp_error simplewebp__load_header_lossy(struct simplewebp__vp8_dec
 				{
 					for (p = 0; p < 11; p++)
 					{
-						v = simplewebp__bitread_getbit(&br, simplewebp__coeff_update_proba[t][b][c][p])
-							? simplewebp__bitread_getval(&br, 8)
-							: simplewebp__coeff_proba0[t][b][c][p];
+						v = swebp__bitread_getbit(&br, swebp__coeff_update_proba[t][b][c][p])
+							? swebp__bitread_getval(&br, 8)
+							: swebp__coeff_proba0[t][b][c][p];
 						proba->bands[t][b].probas[c][p] = v;
 					}
 				}
 			}
 
 			for (b = 0; b < 17; b++)
-				proba->bands_ptr[t][b] = &proba->bands[t][simplewebp__bands[b]];
+				proba->bands_ptr[t][b] = &proba->bands[t][swebp__bands[b]];
 		}
 
-		vp8d->use_skip_proba = simplewebp__bitread_getval(&br, 1);
+		vp8d->use_skip_proba = swebp__bitread_getval(&br, 1);
 		if (vp8d->use_skip_proba)
-			vp8d->skip_proba = simplewebp__bitread_getval(&br, 8);
+			vp8d->skip_proba = swebp__bitread_getval(&br, 8);
 	}
 
 	if (br.eof)
@@ -3242,7 +3270,7 @@ static simplewebp_error simplewebp__load_header_lossy(struct simplewebp__vp8_dec
 	return SIMPLEWEBP_NO_ERROR;
 }
 
-static void simplewebp__vp8_enter_critical(struct simplewebp__vp8_decoder *vp8d)
+static void swebp__vp8_enter_critical(struct swebp__vp8 *vp8d)
 {
 	vp8d->tl_mb_x = vp8d->tl_mb_y = 0;
 	vp8d->br_mb_x = vp8d->mb_w;
@@ -3250,14 +3278,14 @@ static void simplewebp__vp8_enter_critical(struct simplewebp__vp8_decoder *vp8d)
 
 	if (vp8d->filter_type > 0)
 	{
-		int s;
-		struct simplewebp__filter_header *filt_hdr;
+		simplewebp_i32 s;
+		struct swebp__filter_header *filt_hdr;
 
 		filt_hdr = &vp8d->filter_header;
 
 		for (s = 0; s < 4; s++)
 		{
-			int i4x4, base_level;
+			simplewebp_i32 i4x4, base_level;
 
 			if (vp8d->segment_header.use_segment)
 				base_level = vp8d->segment_header.filter_strength[s]
@@ -3267,8 +3295,8 @@ static void simplewebp__vp8_enter_critical(struct simplewebp__vp8_decoder *vp8d)
 
 			for (i4x4 = 0; i4x4 <= 1; i4x4++)
 			{
-				struct simplewebp__finfo *info;
-				int level;
+				struct swebp__finfo *info;
+				simplewebp_i32 level;
 
 				info = &vp8d->fstrengths[s][i4x4];
 				level = base_level
@@ -3278,7 +3306,7 @@ static void simplewebp__vp8_enter_critical(struct simplewebp__vp8_decoder *vp8d)
 				level = (level < 0) ? 0 : ((level > 63) ? 63 : level);
 				if (level > 0)
 				{
-					int ilevel = level;
+					simplewebp_i32 ilevel = level;
 
 					if (filt_hdr->sharpness > 0)
 					{
@@ -3304,11 +3332,11 @@ static void simplewebp__vp8_enter_critical(struct simplewebp__vp8_decoder *vp8d)
 	}
 }
 
-static void simplewebp__vp8_parse_intra_mode(struct simplewebp__vp8_decoder *vp8d, int mb_x)
+static void swebp__vp8_parse_intra_mode(struct swebp__vp8 *vp8d, simplewebp_i32 mb_x)
 {
-	unsigned char *top, *left;
-	struct simplewebp__mblockdata *block;
-	struct simplewebp__bitread *br;
+	simplewebp_u8 *top, *left;
+	struct swebp__mblockdata *block;
+	struct swebp__bdec *br;
 
 	top = vp8d->intra_t + 4 * mb_x;
 	left = vp8d->intra_l;
@@ -3316,21 +3344,21 @@ static void simplewebp__vp8_parse_intra_mode(struct simplewebp__vp8_decoder *vp8
 	br = &vp8d->br;
 
 	if (vp8d->segment_header.update_map)
-		block->segment = !simplewebp__bitread_getbit(br, vp8d->proba.segments[0])
-			? simplewebp__bitread_getbit(br, vp8d->proba.segments[1])
-			: simplewebp__bitread_getbit(br, vp8d->proba.segments[2]) + 2;
+		block->segment = !swebp__bitread_getbit(br, vp8d->proba.segments[0])
+			? swebp__bitread_getbit(br, vp8d->proba.segments[1])
+			: swebp__bitread_getbit(br, vp8d->proba.segments[2]) + 2;
 	else
 		block->segment = 0;
 
 	if (vp8d->use_skip_proba)
-		block->skip = simplewebp__bitread_getbit(br, vp8d->skip_proba);
+		block->skip = swebp__bitread_getbit(br, vp8d->skip_proba);
 
-	block->is_i4x4 = !simplewebp__bitread_getbit(br, 145);
+	block->is_i4x4 = !swebp__bitread_getbit(br, 145);
 	if (!block->is_i4x4)
 	{
-		int ymode = simplewebp__bitread_getbit(br, 156)
-			? (simplewebp__bitread_getbit(br, 128) ? 1 : 3)
-			: (simplewebp__bitread_getbit(br, 163) ? 2 : 0);
+		simplewebp_i32 ymode = swebp__bitread_getbit(br, 156)
+			? (swebp__bitread_getbit(br, 128) ? 1 : 3)
+			: (swebp__bitread_getbit(br, 163) ? 2 : 0);
 
 		block->imodes[0] = ymode;
 		memset(top, ymode, 4);
@@ -3338,28 +3366,28 @@ static void simplewebp__vp8_parse_intra_mode(struct simplewebp__vp8_decoder *vp8
 	}
 	else
 	{
-		unsigned char *modes;
-		int y;
+		simplewebp_u8 *modes;
+		simplewebp_i32 y;
 
 		modes = block->imodes;
 		for (y = 0; y < 4; y++)
 		{
-			int ymode, x;
+			simplewebp_i32 ymode, x;
 
 			ymode = left[y];
 			for (x = 0; x < 4; x++)
 			{
-				const unsigned char *const prob = simplewebp__modes_proba[top[x]][ymode];
-				ymode = !simplewebp__bitread_getbit(br, prob[0]) ? 0 :
-					!simplewebp__bitread_getbit(br, prob[1]) ? 1 :
-						!simplewebp__bitread_getbit(br, prob[2]) ? 2 :
-							!simplewebp__bitread_getbit(br, prob[3]) ?
-								(!simplewebp__bitread_getbit(br, prob[4]) ? 3 :
-									(!simplewebp__bitread_getbit(br, prob[5]) ? 4
+				const simplewebp_u8 *const prob = swebp__modes_proba[top[x]][ymode];
+				ymode = !swebp__bitread_getbit(br, prob[0]) ? 0 :
+					!swebp__bitread_getbit(br, prob[1]) ? 1 :
+						!swebp__bitread_getbit(br, prob[2]) ? 2 :
+							!swebp__bitread_getbit(br, prob[3]) ?
+								(!swebp__bitread_getbit(br, prob[4]) ? 3 :
+									(!swebp__bitread_getbit(br, prob[5]) ? 4
 																				: 5)) :
-								(!simplewebp__bitread_getbit(br, prob[6]) ? 6 :
-									(!simplewebp__bitread_getbit(br, prob[7]) ? 7 :
-										(!simplewebp__bitread_getbit(br, prob[8]) ? 8
+								(!swebp__bitread_getbit(br, prob[6]) ? 6 :
+									(!swebp__bitread_getbit(br, prob[7]) ? 7 :
+										(!swebp__bitread_getbit(br, prob[8]) ? 8
 																					: 9))
 								);
 				top[x] = ymode;
@@ -3371,46 +3399,46 @@ static void simplewebp__vp8_parse_intra_mode(struct simplewebp__vp8_decoder *vp8
 		}
 	}
 
-	block->uvmode = !simplewebp__bitread_getbit(br, 142) ? 0 : (
-		!simplewebp__bitread_getbit(br, 114) ? 2 : (
-			simplewebp__bitread_getbit(br, 183) ? 1 : 3
+	block->uvmode = !swebp__bitread_getbit(br, 142) ? 0 : (
+		!swebp__bitread_getbit(br, 114) ? 2 : (
+			swebp__bitread_getbit(br, 183) ? 1 : 3
 		));
 }
 
-static int simplewebp__vp8_parse_intra_row(struct simplewebp__vp8_decoder *vp8d)
+static simplewebp_i32 swebp__vp8_parse_intra_row(struct swebp__vp8 *vp8d)
 {
-	int mb_x;
+	simplewebp_i32 mb_x;
 	
 	for (mb_x = 0; mb_x < vp8d->mb_w; mb_x++)
-		simplewebp__vp8_parse_intra_mode(vp8d, mb_x);
+		swebp__vp8_parse_intra_mode(vp8d, mb_x);
 
 	return !vp8d->br.eof;
 }
 
-static void simplewebp__vp8_init_scanline(struct simplewebp__vp8_decoder *vp8d)
+static void swebp__vp8_init_scanline(struct swebp__vp8 *vp8d)
 {
-	struct simplewebp__mblock *const left = vp8d->mb_info - 1;
+	struct swebp__mblock *const left = vp8d->mb_info - 1;
 	left->nz = 0;
 	left->nz_dc = 0;
 	memset(vp8d->intra_l, 0, sizeof(vp8d->intra_l));
 	vp8d->mb_x = 0;
 }
 
-static unsigned char *simplewebp__vp8_alloc_memory(struct simplewebp__vp8_decoder *vp8d, simplewebp_allocator *allocator)
+static simplewebp_u8 *swebp__vp8_alloc_memory(struct swebp__vp8 *vp8d, simplewebp_allocator *allocator)
 {
-	int mb_w;
+	simplewebp_i32 mb_w;
 	size_t intra_pred_mode_size, top_size, mb_info_size, f_info_size;
 	size_t yuv_size, mb_data_size, cache_height, cache_size, alpha_size, needed;
-	unsigned char *orig_mem, *mem;
+	simplewebp_u8 *orig_mem, *mem;
 
 	mb_w = vp8d->mb_w;
 	intra_pred_mode_size = 4 * mb_w;
-	top_size = sizeof(struct simplewebp__topsmp) * mb_w;
-	mb_info_size = (mb_w + 1) * sizeof(struct simplewebp__mblock);
-	f_info_size = vp8d->filter_type > 0 ? (mb_w * sizeof(struct simplewebp__finfo)) : 0;
+	top_size = sizeof(struct swebp__topsmp) * mb_w;
+	mb_info_size = (mb_w + 1) * sizeof(struct swebp__mblock);
+	f_info_size = vp8d->filter_type > 0 ? (mb_w * sizeof(struct swebp__finfo)) : 0;
 	yuv_size = (32 * 17 + 32 * 9) * sizeof(*vp8d->yuv_b);
 	mb_data_size = mb_w * sizeof(*vp8d->mb_data);
-	cache_height = (16 + simplewebp__fextrarows[vp8d->filter_type]) * 3 / 2;
+	cache_height = (16 + swebp__fextrarows[vp8d->filter_type]) * 3 / 2;
 	cache_size = top_size * cache_height;
 	alpha_size = vp8d->alpha_data ? (vp8d->picture_header.width * vp8d->picture_header.width) : 0;
 
@@ -3423,7 +3451,7 @@ static unsigned char *simplewebp__vp8_alloc_memory(struct simplewebp__vp8_decode
 		+ cache_size
 		+ alpha_size + 31;
 
-	mem = orig_mem = (unsigned char *) allocator->alloc(needed);
+	mem = orig_mem = (simplewebp_u8 *) allocator->alloc(needed);
 
 	if (mem)
 	{
@@ -3433,28 +3461,28 @@ static unsigned char *simplewebp__vp8_alloc_memory(struct simplewebp__vp8_decode
 		vp8d->intra_t = mem;
 		mem += intra_pred_mode_size;
 
-		vp8d->yuv_t = (struct simplewebp__topsmp *) mem;
+		vp8d->yuv_t = (struct swebp__topsmp *) mem;
 		mem += top_size;
 
-		vp8d->mb_info = ((struct simplewebp__mblock *) mem) + 1;
+		vp8d->mb_info = ((struct swebp__mblock *) mem) + 1;
 		mem += mb_info_size;
 
-		vp8d->f_info = f_info_size ? (struct simplewebp__finfo *) mem : NULL;
+		vp8d->f_info = f_info_size ? (struct swebp__finfo *) mem : NULL;
 		mem += f_info_size;
 
-		mem = simplewebp__align32(mem);
+		mem = swebp__align32(mem);
 		vp8d->yuv_b = mem;
 		mem += yuv_size;
 
-		vp8d->mb_data = (struct simplewebp__mblockdata *) mem;
+		vp8d->mb_data = (struct swebp__mblockdata *) mem;
 		mem += mb_data_size;
 
 		vp8d->cache_y_stride = 16 * mb_w;
 		vp8d->cache_uv_stride = 8 * mb_w;
 		{
-			int extra_rows, extra_y, extra_uv;
+			simplewebp_i32 extra_rows, extra_y, extra_uv;
 
-			extra_rows = simplewebp__fextrarows[vp8d->filter_type];
+			extra_rows = swebp__fextrarows[vp8d->filter_type];
 			extra_y = extra_rows * vp8d->cache_y_stride;
 			extra_uv = (extra_rows / 2) * vp8d->cache_uv_stride;
 			vp8d->cache_y = mem + extra_y;
@@ -3467,60 +3495,60 @@ static unsigned char *simplewebp__vp8_alloc_memory(struct simplewebp__vp8_decode
 		mem += alpha_size;
 
 		memset(vp8d->mb_info - 1, 0, mb_info_size);
-		simplewebp__vp8_init_scanline(vp8d);
+		swebp__vp8_init_scanline(vp8d);
 		memset(vp8d->intra_t, 0, intra_pred_mode_size);
 	}
 
 	return orig_mem;
 }
 
-static const unsigned char simplewebp__cat3[] = { 173, 148, 140, 0 };
-static const unsigned char simplewebp__cat4[] = { 176, 155, 140, 135, 0 };
-static const unsigned char simplewebp__cat5[] = { 180, 157, 141, 134, 130, 0 };
-static const unsigned char simplewebp__cat6[] = { 254, 254, 243, 230, 196, 177, 153, 140, 133, 130, 129, 0 };
-static const unsigned char* const simplewebp__cat3456[] = {
-	simplewebp__cat3,
-	simplewebp__cat4,
-	simplewebp__cat5,
-	simplewebp__cat6
+static const simplewebp_u8 swebp__cat3[] = { 173, 148, 140, 0 };
+static const simplewebp_u8 swebp__cat4[] = { 176, 155, 140, 135, 0 };
+static const simplewebp_u8 swebp__cat5[] = { 180, 157, 141, 134, 130, 0 };
+static const simplewebp_u8 swebp__cat6[] = { 254, 254, 243, 230, 196, 177, 153, 140, 133, 130, 129, 0 };
+static const simplewebp_u8* const swebp__cat3456[] = {
+	swebp__cat3,
+	swebp__cat4,
+	swebp__cat5,
+	swebp__cat6
 };
-static const unsigned char simplewebp__zigzag[16] = {0, 1, 4, 8,  5, 2, 3, 6,  9, 12, 13, 10,  7, 11, 14, 15};
+static const simplewebp_u8 swebp__zigzag[16] = {0, 1, 4, 8,  5, 2, 3, 6,  9, 12, 13, 10,  7, 11, 14, 15};
 
-static int simplewebp__get_large_value(struct simplewebp__bitread *br, const unsigned char *p)
+static simplewebp_i32 swebp__get_large_value(struct swebp__bdec *br, const simplewebp_u8 *p)
 {
-	int v;
+	simplewebp_i32 v;
 
-	if (!simplewebp__bitread_getbit(br, p[3]))
+	if (!swebp__bitread_getbit(br, p[3]))
 	{
-		if (!simplewebp__bitread_getbit(br, p[4]))
+		if (!swebp__bitread_getbit(br, p[4]))
 			v = 2;
 		else
-			v = 3 + simplewebp__bitread_getbit(br, p[5]);
+			v = 3 + swebp__bitread_getbit(br, p[5]);
 	}
 	else
 	{
-		if (!simplewebp__bitread_getbit(br, p[6]))
+		if (!swebp__bitread_getbit(br, p[6]))
 		{
-			if (!simplewebp__bitread_getbit(br, p[7]))
-				v = 5 + simplewebp__bitread_getbit(br, 159);
+			if (!swebp__bitread_getbit(br, p[7]))
+				v = 5 + swebp__bitread_getbit(br, 159);
 			else
 			{
-				v = 7 + 2 * simplewebp__bitread_getbit(br, 165);
-				v += simplewebp__bitread_getbit(br, 145);
+				v = 7 + 2 * swebp__bitread_getbit(br, 165);
+				v += swebp__bitread_getbit(br, 145);
 			}
 		}
 		else
 		{
-			const unsigned char *tab;
-			int bit1, bit0, cat;
+			const simplewebp_u8 *tab;
+			simplewebp_i32 bit1, bit0, cat;
 
-			bit1 = simplewebp__bitread_getbit(br, p[8]);
-			bit0 = simplewebp__bitread_getbit(br, p[9 + bit1]);
+			bit1 = swebp__bitread_getbit(br, p[8]);
+			bit0 = swebp__bitread_getbit(br, p[9 + bit1]);
 			cat = 2 * bit1 + bit0;
 			v = 0;
 
-			for (tab = simplewebp__cat3456[cat]; *tab; ++tab)
-				v += v + simplewebp__bitread_getbit(br, *tab);
+			for (tab = swebp__cat3456[cat]; *tab; ++tab)
+				v += v + swebp__bitread_getbit(br, *tab);
 
 			v += 3 + (8 << cat);
 		}
@@ -3529,16 +3557,16 @@ static int simplewebp__get_large_value(struct simplewebp__bitread *br, const uns
 	return v;
 }
 
-static int simplewebp__get_coeffs(struct simplewebp__bitread *br, const struct simplewebp__bandprobas *prob[], int ctx, const simplewebp__quant_t dq, int n, short *out)
+static simplewebp_i32 swebp__get_coeffs(struct swebp__bdec *br, const struct swebp__bandprobas *prob[], simplewebp_i32 ctx, const swebp__quant_t dq, simplewebp_i32 n, simplewebp_i16 *out)
 {
-	const unsigned char *p = prob[n]->probas[ctx];
+	const simplewebp_u8 *p = prob[n]->probas[ctx];
 
 	for (; n < 16; n++)
 	{
-		if (!simplewebp__bitread_getbit(br, p[0]))
+		if (!swebp__bitread_getbit(br, p[0]))
 			return n;
 
-		while (!simplewebp__bitread_getbit(br, p[1]))
+		while (!swebp__bitread_getbit(br, p[1]))
 		{
 			p = prob[++n]->probas[0];
 			if (n == 16)
@@ -3546,41 +3574,41 @@ static int simplewebp__get_coeffs(struct simplewebp__bitread *br, const struct s
 		}
 
 		{
-			const simplewebp__probarray *p_ctx;
-			int v;
+			const swebp__probarray *p_ctx;
+			simplewebp_i32 v;
 
 			p_ctx = &prob[n + 1]->probas[0];
 
-			if (!simplewebp__bitread_getbit(br, p[2]))
+			if (!swebp__bitread_getbit(br, p[2]))
 			{
 				v = 1;
 				p = p_ctx[1];
 			}
 			else
 			{
-				v = simplewebp__get_large_value(br, p);
+				v = swebp__get_large_value(br, p);
 				p = p_ctx[2];
 			}
 
-			out[simplewebp__zigzag[n]] = simplewebp__bitread_getsigned(br, v) * dq[n > 0];
+			out[swebp__zigzag[n]] = swebp__bitread_getsigned(br, v) * dq[n > 0];
 		}
 	}
 
 	return 16;
 }
 
-static unsigned int simplewebp__nz_code_bits(unsigned int nz_coeffs, int nz, char dc_nz)
+static simplewebp_u32 swebp__nz_code_bits(simplewebp_u32 nz_coeffs, simplewebp_i32 nz, simplewebp_i8 dc_nz)
 {
 	nz_coeffs <<= 2;
 	nz_coeffs |= (nz > 3) ? 3 : (nz > 1) ? 2 : dc_nz;
 	return nz_coeffs;
 }
 
-static int simplewebp__vp8_decode_macroblock(struct simplewebp__vp8_decoder *vp8d, struct simplewebp__bitread *token_br)
+static simplewebp_i32 swebp__vp8_decode_macroblock(struct swebp__vp8 *vp8d, struct swebp__bdec *token_br)
 {
-	struct simplewebp__mblock *left, *mb;
-	struct simplewebp__mblockdata *block;
-	unsigned char skip;
+	struct swebp__mblock *left, *mb;
+	struct swebp__mblockdata *block;
+	simplewebp_u8 skip;
 
 	left = vp8d->mb_info - 1;
 	mb = vp8d->mb_info + vp8d->mb_x;
@@ -3590,13 +3618,13 @@ static int simplewebp__vp8_decode_macroblock(struct simplewebp__vp8_decoder *vp8
 	if (!skip)
 	{
 		/* Parse residuals */
-		const struct simplewebp__bandprobas * (*bands)[17], **ac_proba;
-		struct simplewebp__quantmat *q;
-		short *dst;
-		struct simplewebp__mblock *left_mb;
-		unsigned char tnz, lnz;
-		unsigned int non0_y, non0_uv, out_t_nz, out_l_nz;
-		int x, y, ch, first;
+		const struct swebp__bandprobas * (*bands)[17], **ac_proba;
+		struct swebp__quantmat *q;
+		simplewebp_i16 *dst;
+		struct swebp__mblock *left_mb;
+		simplewebp_u8 tnz, lnz;
+		simplewebp_u32 non0_y, non0_uv, out_t_nz, out_l_nz;
+		simplewebp_i32 x, y, ch, first;
 
 		bands = vp8d->proba.bands_ptr;
 		q = &vp8d->dqm[block->segment];
@@ -3604,22 +3632,22 @@ static int simplewebp__vp8_decode_macroblock(struct simplewebp__vp8_decoder *vp8
 		left_mb = vp8d->mb_info - 1;
 		non0_y = non0_uv = 0;
 
-		memset(dst, 0, 384 * sizeof(short));
+		memset(dst, 0, 384 * sizeof(simplewebp_i16));
 		if (!block->is_i4x4)
 		{
-			short dc[16];
-			int ctx, nz;
+			simplewebp_i16 dc[16];
+			simplewebp_i32 ctx, nz;
 
 			memset(dc, 0, sizeof(dc));
 			ctx = mb->nz_dc + left_mb->nz_dc;
-			nz = simplewebp__get_coeffs(token_br, bands[1], ctx, q->y2_mat, 0, dc);
+			nz = swebp__get_coeffs(token_br, bands[1], ctx, q->y2_mat, 0, dc);
 
 			mb->nz_dc = left_mb->nz_dc = nz > 0;
 			if (nz > 1)
-				simplewebp__transform_wht(dc, dst);
+				swebp__transform_wht(dc, dst);
 			else
 			{
-				int i, dc0;
+				simplewebp_i32 i, dc0;
 				dc0 = (dc[0] + 3) >> 3;
 				for (i = 0; i < 16; i++)
 					dst[i * 16] = dc0;
@@ -3639,21 +3667,21 @@ static int simplewebp__vp8_decode_macroblock(struct simplewebp__vp8_decoder *vp8
 
 		for (y = 0; y < 4; y++)
 		{
-			int l;
-			unsigned int nz_coeffs;
+			simplewebp_i32 l;
+			simplewebp_u32 nz_coeffs;
 
 			l = lnz & 1;
 			nz_coeffs = 0;
 
 			for (x = 0; x < 4; x++)
 			{
-				int ctx, nz;
+				simplewebp_i32 ctx, nz;
 
 				ctx = l + (tnz & 1);
-				nz = simplewebp__get_coeffs(token_br, ac_proba, ctx, q->y1_mat, first, dst);
+				nz = swebp__get_coeffs(token_br, ac_proba, ctx, q->y1_mat, first, dst);
 				l = nz > first;
 				tnz = (tnz >> 1) | (l << 7);
-				nz_coeffs = simplewebp__nz_code_bits(nz_coeffs, nz, dst[0] != 0);
+				nz_coeffs = swebp__nz_code_bits(nz_coeffs, nz, dst[0] != 0);
 				dst += 16;
 			}
 
@@ -3667,24 +3695,24 @@ static int simplewebp__vp8_decode_macroblock(struct simplewebp__vp8_decoder *vp8
 
 		for (ch = 0; ch < 4; ch += 2)
 		{
-			unsigned int nz_coeffs = 0;
+			simplewebp_u32 nz_coeffs = 0;
 
 			tnz = mb->nz >> (4 + ch);
 			lnz = left_mb->nz >> (4 + ch);
 
 			for (y = 0; y < 2; y++)
 			{
-				int l = lnz & 1;
+				simplewebp_i32 l = lnz & 1;
 
 				for (x = 0; x < 2; x++)
 				{
-					int ctx, nz;
+					simplewebp_i32 ctx, nz;
 
 					ctx = l + (tnz & 1);
-					nz = simplewebp__get_coeffs(token_br, bands[2], ctx, q->uv_mat, 0, dst);
+					nz = swebp__get_coeffs(token_br, bands[2], ctx, q->uv_mat, 0, dst);
 					l = nz > 0;
 					tnz = (tnz >> 1) | (l << 3);
-					nz_coeffs = simplewebp__nz_code_bits(nz_coeffs, nz, dst[0] != 0);
+					nz_coeffs = swebp__nz_code_bits(nz_coeffs, nz, dst[0] != 0);
 					dst += 16;
 				}
 
@@ -3717,7 +3745,7 @@ static int simplewebp__vp8_decode_macroblock(struct simplewebp__vp8_decoder *vp8
 
 	if (vp8d->filter_type > 0)
 	{
-		struct simplewebp__finfo *const finfo = vp8d->f_info + vp8d->mb_x;
+		struct swebp__finfo *const finfo = vp8d->f_info + vp8d->mb_x;
 		*finfo = vp8d->fstrengths[block->segment][block->is_i4x4];
 		finfo->inner |= !skip;
 	}
@@ -3725,25 +3753,25 @@ static int simplewebp__vp8_decode_macroblock(struct simplewebp__vp8_decoder *vp8
 	return !token_br->eof;
 }
 
-static void simplewebp__do_transform(unsigned int bits, const short *src, unsigned char *dst)
+static void swebp__do_transform(simplewebp_u32 bits, const simplewebp_i16 *src, simplewebp_u8 *dst)
 {
 	switch (bits >> 30)
 	{
 		case 3:
-			simplewebp__transform(src, dst, 0);
+			swebp__transform(src, dst, 0);
 			break;
 		case 2:
-			simplewebp__transform_ac3(src, dst);
+			swebp__transform_ac3(src, dst);
 			break;
 		case 1:
-			simplewebp__transform_dc(src, dst);
+			swebp__transform_dc(src, dst);
 			break;
 		default:
 			break;
 	}
 }
 
-static int simplewebp__check_mode(int mb_x, int mb_y, int mode)
+static simplewebp_i32 swebp__check_mode(simplewebp_i32 mb_x, simplewebp_i32 mb_y, simplewebp_i32 mode)
 {
 	if (mode == 0) {
 		if (mb_x == 0)
@@ -3755,70 +3783,70 @@ static int simplewebp__check_mode(int mb_x, int mb_y, int mode)
 	return mode;
 }
 
-static void simplewebp__do_transform_uv(unsigned int bits, const short *src, unsigned char *dst)
+static void swebp__do_transform_uv(simplewebp_u32 bits, const simplewebp_i16 *src, simplewebp_u8 *dst)
 {
 	if (bits & 0xff)
 	{
 		if (bits & 0xaa)
-			simplewebp__transform_uv(src, dst);
+			swebp__transform_uv(src, dst);
 		else
-			simplewebp__transform_dcuv(src, dst);
+			swebp__transform_dcuv(src, dst);
 	}
 }
 
-static int simplewebp__multhi(int v, int coeff)
+static simplewebp_i32 swebp__multhi(simplewebp_i32 v, simplewebp_i32 coeff)
 {
 	return (v * coeff) >> 8;
 }
 
-static unsigned char simplewebp__yuv2rgb_clip8(int v)
+static simplewebp_u8 swebp__yuv2rgb_clip8(simplewebp_i32 v)
 {
-	return ((v & ~16383) == 0) ? ((unsigned char) (v >> 6)) : (v < 0) ? 0 : 255;
+	return ((v & ~16383) == 0) ? ((simplewebp_u8) (v >> 6)) : (v < 0) ? 0 : 255;
 }
 
-static void simplewebp__yuv2rgb_plain(unsigned char y, unsigned char u, unsigned char v, unsigned char *rgb)
+static void swebp__yuv2rgb_plain(simplewebp_u8 y, simplewebp_u8 u, simplewebp_u8 v, simplewebp_u8 *rgb)
 {
-	int yhi = simplewebp__multhi(y, 19077);
+	simplewebp_i32 yhi = swebp__multhi(y, 19077);
 
-	rgb[0] = simplewebp__yuv2rgb_clip8(yhi + simplewebp__multhi(v, 26149) - 14234);
-	rgb[1] = simplewebp__yuv2rgb_clip8(yhi - simplewebp__multhi(u, 6419) - simplewebp__multhi(v, 13320) + 8708);
-	rgb[2] = simplewebp__yuv2rgb_clip8(yhi + simplewebp__multhi(u, 33050) - 17685);
+	rgb[0] = swebp__yuv2rgb_clip8(yhi + swebp__multhi(v, 26149) - 14234);
+	rgb[1] = swebp__yuv2rgb_clip8(yhi - swebp__multhi(u, 6419) - swebp__multhi(v, 13320) + 8708);
+	rgb[2] = swebp__yuv2rgb_clip8(yhi + swebp__multhi(u, 33050) - 17685);
 }
 
-static void simplewebp__yuv2rgba(unsigned char *y_out, unsigned char *u_out, unsigned char *v_out, int y_start, int y_end, int y_stride, int uv_stride, int width, unsigned char *rgbout)
+static void swebp__yuv2rgba(simplewebp_u8 *y_out, simplewebp_u8 *u_out, simplewebp_u8 *v_out, simplewebp_i32 y_start, simplewebp_i32 y_end, simplewebp_i32 y_stride, simplewebp_i32 uv_stride, simplewebp_i32 width, simplewebp_u8 *rgbout)
 {
-	int y, x;
+	simplewebp_i32 y, x;
 
 	for (y = y_start; y < y_end; y++)
 	{
 		for (x = 0; x < width; x++)
 		{
-			int iy, iuv;
+			simplewebp_i32 iy, iuv;
 			iy = (y - y_start) * y_stride + x;
 			iuv = ((y - y_start) / 2) * uv_stride + x / 2;
 
-			simplewebp__yuv2rgb_plain(y_out[iy], u_out[iuv], v_out[iuv], &rgbout[(y * width + x) * 4]);
+			swebp__yuv2rgb_plain(y_out[iy], u_out[iuv], v_out[iuv], &rgbout[(y * width + x) * 4]);
 			rgbout[(y * width + x) * 4 + 3] = 255u;
 		}
 	}
 }
 
-static unsigned char simplewebp__interpolate(unsigned char a, unsigned char b)
+static simplewebp_u8 swebp__interpolate(simplewebp_u8 a, simplewebp_u8 b)
 {
-	return (unsigned char) (((unsigned int) a + b) / 2);
+	return (simplewebp_u8) (((simplewebp_u32) a + b) / 2);
 
 }
 
-static unsigned char simplewebp__interpolate2(unsigned char tl, unsigned char tr, unsigned char bl, unsigned char br)
+static simplewebp_u8 swebp__interpolate2(simplewebp_u8 tl, simplewebp_u8 tr, simplewebp_u8 bl, simplewebp_u8 br)
 {
-	unsigned char tm, bm;
+	simplewebp_u8 tm, bm;
 
-	tm = simplewebp__interpolate(tl, tr);
-	bm = simplewebp__interpolate(bl, br);
-	return simplewebp__interpolate(tm, bm);
+	tm = swebp__interpolate(tl, tr);
+	bm = swebp__interpolate(bl, br);
+	return swebp__interpolate(tm, bm);
 }
 
-static unsigned char simplewebp__do_uv_fancy_upsampling(unsigned char a, unsigned char b, unsigned char c, unsigned char d, char x, char y)
+static simplewebp_u8 swebp__do_uv_fancy_upsampling(simplewebp_u8 a, simplewebp_u8 b, simplewebp_u8 c, simplewebp_u8 d, simplewebp_i8 x, simplewebp_i8 y)
 {
 	/* X and Y must be 0 or 1*/
 	/*
@@ -3849,22 +3877,22 @@ static unsigned char simplewebp__do_uv_fancy_upsampling(unsigned char a, unsigne
 	}
 }
 
-static unsigned char simplewebp__uv_fancy_upsample(unsigned char *v, size_t left_x, size_t x, size_t top_y, size_t y, size_t w, size_t h, char rx, char ry)
+static simplewebp_u8 swebp__uv_fancy_upsample(simplewebp_u8 *v, size_t left_x, size_t x, size_t top_y, size_t y, size_t w, size_t h, simplewebp_i8 rx, simplewebp_i8 ry)
 {
-	unsigned char a, b, c, d;
+	simplewebp_u8 a, b, c, d;
 
 	a = v[top_y * w + left_x];
 	c = v[y * w + left_x];
 	b = v[top_y * w + x];
 	d = v[y * w + x];
 
-	return simplewebp__do_uv_fancy_upsampling(a, b, c, d, rx, ry);
+	return swebp__do_uv_fancy_upsampling(a, b, c, d, rx, ry);
 }
 
-static void simplewebp__yuva2rgba(struct simplewebp__yuvdst *yuva, size_t w, size_t h, unsigned char *rgba)
+static void swebp__yuva2rgba(struct swebp__yuvdst *yuva, size_t w, size_t h, simplewebp_u8 *rgba)
 {
 	size_t y, x, uvw, uvh;
-	unsigned char buf[4];
+	simplewebp_u8 buf[4];
 
 	uvw = (w + 1) / 2;
 	uvh = (h + 1) / 2;
@@ -3878,14 +3906,14 @@ static void simplewebp__yuva2rgba(struct simplewebp__yuvdst *yuva, size_t w, siz
 		for (x = 0; x < w; x++)
 		{
 			size_t x_uv;
-			unsigned char uval, vval;
-			char hit_b, hit_c;
+			simplewebp_u8 uval, vval;
+			simplewebp_i8 hit_b, hit_c;
 
 			x_uv = (x + 1) / 2;
 			x_uv = x_uv >= uvw ? (x_uv - 1) : x_uv;
 			hit_b = (x & 1) == 0;
 			hit_c = (y & 1) == 0;
-			uval = simplewebp__uv_fancy_upsample(
+			uval = swebp__uv_fancy_upsample(
 				yuva->u,
 				x_uv == 0 ? 0 : x_uv - 1,
 				x_uv,
@@ -3895,7 +3923,7 @@ static void simplewebp__yuva2rgba(struct simplewebp__yuvdst *yuva, size_t w, siz
 				uvh,
 				hit_b, hit_c
 			);
-			vval = simplewebp__uv_fancy_upsample(
+			vval = swebp__uv_fancy_upsample(
 				yuva->v,
 				x_uv == 0 ? 0 : x_uv - 1,
 				x_uv,
@@ -3906,22 +3934,22 @@ static void simplewebp__yuva2rgba(struct simplewebp__yuvdst *yuva, size_t w, siz
 				hit_b, hit_c
 			);
 
-			simplewebp__yuv2rgb_plain(yuva->y[y * w + x], uval, vval, rgba + (y * w + x) * 4);
+			swebp__yuv2rgb_plain(yuva->y[y * w + x], uval, vval, rgba + (y * w + x) * 4);
 			rgba[(y * w + x) * 4 + 3] = yuva->a[y * w + x];
 		}
 	}
 }
 
-static simplewebp_error simplewebp__vp8_process_row(struct simplewebp__vp8_decoder *vp8d, struct simplewebp__yuvdst *destination)
+static simplewebp_error swebp__vp8_process_row(struct swebp__vp8 *vp8d, struct swebp__yuvdst *destination)
 {
-	int filter_row;
+	simplewebp_i32 filter_row;
 
 	filter_row = vp8d->filter_type > 0 && vp8d->mb_y >= vp8d->tl_mb_y && vp8d->mb_y <= vp8d->br_mb_y;
 
 	/* Reconstruct row */
 	{
-		int j, mb_x, mb_y;
-		unsigned char *y_dst, *u_dst, *v_dst;
+		simplewebp_i32 j, mb_x, mb_y;
+		simplewebp_u8 *y_dst, *u_dst, *v_dst;
 
 		mb_y = vp8d->mb_y;
 		y_dst = vp8d->yuv_b + 40;
@@ -3947,7 +3975,7 @@ static simplewebp_error simplewebp__vp8_process_row(struct simplewebp__vp8_decod
 
 		for (mb_x = 0; mb_x < vp8d->mb_w; mb_x++)
 		{
-			struct simplewebp__mblockdata *const block = vp8d->mb_data + mb_x;
+			struct swebp__mblockdata *const block = vp8d->mb_data + mb_x;
 
 			if (mb_x > 0)
 			{
@@ -3961,10 +3989,10 @@ static simplewebp_error simplewebp__vp8_process_row(struct simplewebp__vp8_decod
 			}
 
 			{
-				struct simplewebp__topsmp *top_yuv;
-				const short *coeffs;
-				unsigned int bits;
-				int n;
+				struct swebp__topsmp *top_yuv;
+				const simplewebp_i16 *coeffs;
+				simplewebp_u32 bits;
+				simplewebp_i32 n;
 
 				top_yuv = vp8d->yuv_t + mb_x;
 				coeffs = block->coeffs;
@@ -3979,7 +4007,7 @@ static simplewebp_error simplewebp__vp8_process_row(struct simplewebp__vp8_decod
 
 				if (block->is_i4x4)
 				{
-					unsigned int *const top_right = (unsigned int *) (y_dst - 32 + 16);
+					simplewebp_u32 *const top_right = (simplewebp_u32 *) (y_dst - 32 + 16);
 
 					if (mb_y > 0)
 					{
@@ -3994,38 +4022,38 @@ static simplewebp_error simplewebp__vp8_process_row(struct simplewebp__vp8_decod
 					for (n = 0; n < 16; n++, bits <<= 2)
 					{
 						/* kScan[n] = (n & 3) * 4 + (n >> 2) * 128 */
-						unsigned char *const dst = y_dst + ((n & 3) * 4 + (n >> 2) * 128);
-						simplewebp__predluma4(block->imodes[n], dst);
-						simplewebp__do_transform(bits, coeffs + n * 16, dst);
+						simplewebp_u8 *const dst = y_dst + ((n & 3) * 4 + (n >> 2) * 128);
+						swebp__predluma4(block->imodes[n], dst);
+						swebp__do_transform(bits, coeffs + n * 16, dst);
 					}
 				}
 				else
 				{
-					const int pred_func = simplewebp__check_mode(mb_x, mb_y, block->imodes[0]);
-					simplewebp__predluma16(pred_func, y_dst);
+					const simplewebp_i32 pred_func = swebp__check_mode(mb_x, mb_y, block->imodes[0]);
+					swebp__predluma16(pred_func, y_dst);
 
 					if (bits)
 					{
 						for (n = 0; n < 16; n++, bits <<= 2)
 						{
-							unsigned char *const dst = y_dst + ((n & 3) * 4 + (n >> 2) * 128);
-							simplewebp__do_transform(bits, coeffs + n * 16, dst);
+							simplewebp_u8 *const dst = y_dst + ((n & 3) * 4 + (n >> 2) * 128);
+							swebp__do_transform(bits, coeffs + n * 16, dst);
 						}
 					}
 				}
 
 				{
 					/* Chroma */
-					unsigned int bits_uv;
-					int pred_func;
+					simplewebp_u32 bits_uv;
+					simplewebp_i32 pred_func;
 
 					bits_uv = block->nonzero_uv;
-					pred_func = simplewebp__check_mode(mb_x, mb_y, block->uvmode);
+					pred_func = swebp__check_mode(mb_x, mb_y, block->uvmode);
 
-					simplewebp__predchroma8(pred_func, u_dst);
-					simplewebp__predchroma8(pred_func, v_dst);
-					simplewebp__do_transform_uv(bits_uv >> 0, coeffs + 16 * 16, u_dst);
-					simplewebp__do_transform_uv(bits_uv >> 8, coeffs + 20 * 16, v_dst);
+					swebp__predchroma8(pred_func, u_dst);
+					swebp__predchroma8(pred_func, v_dst);
+					swebp__do_transform_uv(bits_uv >> 0, coeffs + 16 * 16, u_dst);
+					swebp__do_transform_uv(bits_uv >> 8, coeffs + 20 * 16, v_dst);
 				}
 
 				if (mb_y < vp8d->mb_h - 1)
@@ -4038,7 +4066,7 @@ static simplewebp_error simplewebp__vp8_process_row(struct simplewebp__vp8_decod
 
 			/* Transfer reconstructed samples */
 			{
-				unsigned char *y_out, *u_out, *v_out;
+				simplewebp_u8 *y_out, *u_out, *v_out;
 
 				y_out = vp8d->cache_y + mb_x * 16;
 				u_out = vp8d->cache_u + mb_x * 8;
@@ -4057,10 +4085,10 @@ static simplewebp_error simplewebp__vp8_process_row(struct simplewebp__vp8_decod
 
 	/* Finish row */
 	{
-		int extra_y_rows, ysize, uvsize, mb_y;
-		unsigned char *ydst, *udst, *vdst, is_first_row, is_last_row;
+		simplewebp_i32 extra_y_rows, ysize, uvsize, mb_y;
+		simplewebp_u8 *ydst, *udst, *vdst, is_first_row, is_last_row;
 
-		extra_y_rows = simplewebp__fextrarows[vp8d->filter_type];
+		extra_y_rows = swebp__fextrarows[vp8d->filter_type];
 		ysize = extra_y_rows * vp8d->cache_y_stride;
 		uvsize = (extra_y_rows / 2) * vp8d->cache_uv_stride;
 		ydst = vp8d->cache_y - ysize;
@@ -4073,13 +4101,13 @@ static simplewebp_error simplewebp__vp8_process_row(struct simplewebp__vp8_decod
 		if (filter_row)
 		{
 			/* Filter row */
-			int mb_x;
+			simplewebp_i32 mb_x;
 
 			for (mb_x = vp8d->tl_mb_x; mb_x < vp8d->br_mb_x; mb_x++)
 			{
-				int y_bps, ilevel, limit;
-				struct simplewebp__finfo *f_info;
-				unsigned char *y_dst;
+				simplewebp_i32 y_bps, ilevel, limit;
+				struct swebp__finfo *f_info;
+				simplewebp_u8 *y_dst;
 
 				f_info = vp8d->f_info + mb_x;
 				limit = f_info->limit;
@@ -4094,19 +4122,19 @@ static simplewebp_error simplewebp__vp8_process_row(struct simplewebp__vp8_decod
 					{
 						/* Simple filter */
 						if (mb_x > 0)
-							simplewebp__simple_hfilter16(y_dst, y_bps, limit + 4);
+							swebp__simple_hfilter16(y_dst, y_bps, limit + 4);
 						if (f_info->inner)
-							simplewebp__simple_hfilter16_i(y_dst, y_bps, limit);
+							swebp__simple_hfilter16_i(y_dst, y_bps, limit);
 						if (mb_y > 0)
-							simplewebp__simple_vfilter16(y_dst, y_bps, limit + 4);
+							swebp__simple_vfilter16(y_dst, y_bps, limit + 4);
 						if (f_info->inner)
-							simplewebp__simple_vfilter16_i(y_dst, y_bps, limit);
+							swebp__simple_vfilter16_i(y_dst, y_bps, limit);
 					}
 					else
 					{
 						/* Complex filter */
-						int uv_bps, hev_thresh;
-						unsigned char *u_dst, *v_dst;
+						simplewebp_i32 uv_bps, hev_thresh;
+						simplewebp_u8 *u_dst, *v_dst;
 
 						uv_bps = vp8d->cache_uv_stride;
 						hev_thresh = f_info->hev_thresh;
@@ -4115,23 +4143,23 @@ static simplewebp_error simplewebp__vp8_process_row(struct simplewebp__vp8_decod
 
 						if (mb_x > 0)
 						{
-							simplewebp__hfilter16(y_dst, y_bps, limit + 4, ilevel, hev_thresh);
-							simplewebp__hfilter8(u_dst, v_dst, uv_bps, limit + 4, ilevel, hev_thresh);
+							swebp__hfilter16(y_dst, y_bps, limit + 4, ilevel, hev_thresh);
+							swebp__hfilter8(u_dst, v_dst, uv_bps, limit + 4, ilevel, hev_thresh);
 						}
 						if (f_info->inner)
 						{
-							simplewebp__hfilter16_i(y_dst, y_bps, limit, ilevel, hev_thresh);
-							simplewebp__hfilter8_i(u_dst, v_dst, uv_bps, limit, ilevel, hev_thresh);
+							swebp__hfilter16_i(y_dst, y_bps, limit, ilevel, hev_thresh);
+							swebp__hfilter8_i(u_dst, v_dst, uv_bps, limit, ilevel, hev_thresh);
 						}
 						if (mb_y > 0)
 						{
-							simplewebp__vfilter16(y_dst, y_bps, limit + 4, ilevel, hev_thresh);
-							simplewebp__vfilter8(u_dst, v_dst, uv_bps, limit + 4, ilevel, hev_thresh);
+							swebp__vfilter16(y_dst, y_bps, limit + 4, ilevel, hev_thresh);
+							swebp__vfilter8(u_dst, v_dst, uv_bps, limit + 4, ilevel, hev_thresh);
 						}
 						if (f_info->inner)
 						{
-							simplewebp__vfilter16_i(y_dst, y_bps, limit, ilevel, hev_thresh);
-							simplewebp__vfilter8_i(u_dst, v_dst, uv_bps, limit, ilevel, hev_thresh);
+							swebp__vfilter16_i(y_dst, y_bps, limit, ilevel, hev_thresh);
+							swebp__vfilter8_i(u_dst, v_dst, uv_bps, limit, ilevel, hev_thresh);
 						}
 					}
 				}
@@ -4145,8 +4173,8 @@ static simplewebp_error simplewebp__vp8_process_row(struct simplewebp__vp8_decod
 
 		{
 			/* Write YUV */
-			unsigned char *y_out, *u_out, *v_out;
-			int y_start, y_end;
+			simplewebp_u8 *y_out, *u_out, *v_out;
+			simplewebp_i32 y_start, y_end;
 
 			y_start = mb_y * 16;
 			y_end = (mb_y + 1) * 16;
@@ -4174,10 +4202,10 @@ static simplewebp_error simplewebp__vp8_process_row(struct simplewebp__vp8_decod
 				/* TODO: Alpha Channel */
 			}
 
-			/*simplewebp__yuv2rgba(y_out, u_out, v_out, y_start, y_end, vp8d->cache_y_stride, vp8d->cache_uv_stride, vp8d->picture_header.width, rgbout);*/
+			/*swebp__yuv2rgba(y_out, u_out, v_out, y_start, y_end, vp8d->cache_y_stride, vp8d->cache_uv_stride, vp8d->picture_header.width, rgbout);*/
 			{
 				/* Copy YUV buffer */
-				int row, iwidth, iwidth2, uv_start, uv_end;
+				simplewebp_i32 row, iwidth, iwidth2, uv_start, uv_end;
 
 				iwidth = vp8d->picture_header.width;
 				iwidth2 = (iwidth + 1) / 2;
@@ -4213,26 +4241,26 @@ static simplewebp_error simplewebp__vp8_process_row(struct simplewebp__vp8_decod
 	return SIMPLEWEBP_NO_ERROR;
 }
 
-static simplewebp_error simplewebp__vp8_parse_frame(struct simplewebp__vp8_decoder *vp8d, struct simplewebp__yuvdst *destination)
+static simplewebp_error swebp__vp8_parse_frame(struct swebp__vp8 *vp8d, struct swebp__yuvdst *destination)
 {
 	simplewebp_error err;
 
 	for (vp8d->mb_y = 0; vp8d->mb_y < vp8d->br_mb_y; vp8d->mb_y++)
 	{
-		struct simplewebp__bitread *token_br = &vp8d->parts[vp8d->mb_y & vp8d->nparts_minus_1];
+		struct swebp__bdec *token_br = &vp8d->parts[vp8d->mb_y & vp8d->nparts_minus_1];
 
-		if (!simplewebp__vp8_parse_intra_row(vp8d))
+		if (!swebp__vp8_parse_intra_row(vp8d))
 			return SIMPLEWEBP_CORRUPT_ERROR;
 
 		for (; vp8d->mb_x < vp8d->mb_w; vp8d->mb_x++)
 		{
-			if (!simplewebp__vp8_decode_macroblock(vp8d, token_br))
+			if (!swebp__vp8_decode_macroblock(vp8d, token_br))
 				return SIMPLEWEBP_CORRUPT_ERROR;
 		}
 
 		/* Prepare for next scanline and reconstruct it */
-		simplewebp__vp8_init_scanline(vp8d);
-		err = simplewebp__vp8_process_row(vp8d, destination);
+		swebp__vp8_init_scanline(vp8d);
+		err = swebp__vp8_process_row(vp8d, destination);
 
 		if (err != SIMPLEWEBP_NO_ERROR)
 			return err;
@@ -4241,30 +4269,30 @@ static simplewebp_error simplewebp__vp8_parse_frame(struct simplewebp__vp8_decod
 	return SIMPLEWEBP_NO_ERROR;
 }
 
-static simplewebp_error simplewebp__decode_lossy(simplewebp *simplewebp, struct simplewebp__yuvdst *destination, void *settings)
+static simplewebp_error swebp__decode_lossy(simplewebp *simplewebp, struct swebp__yuvdst *destination, void *settings)
 {
 	simplewebp_input input;
 	size_t vp8size;
-	unsigned char *vp8buffer, *decoder_mem;
-	struct simplewebp__vp8_decoder *vp8d;
+	simplewebp_u8 *vp8buffer, *decoder_mem;
+	struct swebp__vp8 *vp8d;
 	simplewebp_error err;
 
 	vp8d = &simplewebp->decoder.vp8;
 
-	if (!simplewebp__seek(0, &simplewebp->vp8_input))
+	if (!swebp__seek(0, &simplewebp->vp8_input))
 		return SIMPLEWEBP_IO_ERROR;
 
-	vp8size = simplewebp__proxy_size(simplewebp->vp8_input.userdata);
+	vp8size = swebp__proxy_size(simplewebp->vp8_input.userdata);
 	/* Sanity check */
 	if (vp8d->frame_header.partition_length > vp8size)
 		return SIMPLEWEBP_CORRUPT_ERROR;
 
 	/* Read all VP8 chunk */
-	vp8buffer = (unsigned char *) simplewebp->allocator.alloc(vp8size);
+	vp8buffer = (simplewebp_u8 *) simplewebp->allocator.alloc(vp8size);
 	if (vp8buffer == NULL)
 		return SIMPLEWEBP_ALLOC_ERROR;
 
-	if (!simplewebp__read2(vp8size, vp8buffer, &simplewebp->vp8_input))
+	if (!swebp__read2(vp8size, vp8buffer, &simplewebp->vp8_input))
 	{
 		simplewebp->allocator.free(vp8buffer);
 		return SIMPLEWEBP_CORRUPT_ERROR;
@@ -4277,15 +4305,15 @@ static simplewebp_error simplewebp__decode_lossy(simplewebp *simplewebp, struct 
 		return err;
 	}
 
-	/* Let's skip already-read stuff at simplewebp__load_lossy */
-	if (!simplewebp__seek(10, &input))
+	/* Let's skip already-read stuff at swebp__load_lossy */
+	if (!swebp__seek(10, &input))
 	{
 		simplewebp->allocator.free(vp8buffer);
 		simplewebp_close_input(&input);
 		return SIMPLEWEBP_CORRUPT_ERROR;
 	}
 
-	err = simplewebp__load_header_lossy(&simplewebp->decoder.vp8, vp8buffer + 10, vp8size - 10);
+	err = swebp__load_vp8_header(&simplewebp->decoder.vp8, vp8buffer + 10, vp8size - 10);
 	if (err != SIMPLEWEBP_NO_ERROR)
 	{
 		simplewebp->allocator.free(vp8buffer);
@@ -4294,8 +4322,8 @@ static simplewebp_error simplewebp__decode_lossy(simplewebp *simplewebp, struct 
 	}
 
 	/* Enter critical */
-	simplewebp__vp8_enter_critical(&simplewebp->decoder.vp8);
-	decoder_mem = simplewebp__vp8_alloc_memory(vp8d, &simplewebp->allocator);
+	swebp__vp8_enter_critical(&simplewebp->decoder.vp8);
+	decoder_mem = swebp__vp8_alloc_memory(vp8d, &simplewebp->allocator);
 
 	if (decoder_mem == NULL)
 	{
@@ -4304,7 +4332,7 @@ static simplewebp_error simplewebp__decode_lossy(simplewebp *simplewebp, struct 
 		return SIMPLEWEBP_ALLOC_ERROR;
 	}
 
-	err = simplewebp__vp8_parse_frame(vp8d, destination);
+	err = swebp__vp8_parse_frame(vp8d, destination);
 	if (err != SIMPLEWEBP_NO_ERROR)
 	{
 		simplewebp->allocator.free(decoder_mem);
@@ -4318,7 +4346,7 @@ static simplewebp_error simplewebp__decode_lossy(simplewebp *simplewebp, struct 
 	simplewebp->allocator.free(vp8buffer);
 	vp8d->mem = NULL;
 	vp8d->mem_size = 0;
-	memset(&vp8d->br, 0, sizeof(struct simplewebp__bitread));
+	memset(&vp8d->br, 0, sizeof(struct swebp__bdec));
 	vp8d->ready = 0;
 	simplewebp_close_input(&input);
 
@@ -4329,12 +4357,12 @@ simplewebp_error simplewebp_decode_yuva(simplewebp *simplewebp, void *y_buffer, 
 {
 	if (simplewebp->webp_type == 0)
 	{
-		struct simplewebp__yuvdst destination;
-		destination.y = (unsigned char *) y_buffer;
-		destination.u = (unsigned char *) u_buffer;
-		destination.v = (unsigned char *) u_buffer;
-		destination.a = (unsigned char *) u_buffer;
-		return simplewebp__decode_lossy(simplewebp, &destination, settings);
+		struct swebp__yuvdst destination;
+		destination.y = (simplewebp_u8 *) y_buffer;
+		destination.u = (simplewebp_u8 *) u_buffer;
+		destination.v = (simplewebp_u8 *) u_buffer;
+		destination.a = (simplewebp_u8 *) u_buffer;
+		return swebp__decode_lossy(simplewebp, &destination, settings);
 	}
 
 	return SIMPLEWEBP_IS_LOSSLESS_ERROR;
@@ -4345,9 +4373,9 @@ simplewebp_error simplewebp_decode(simplewebp *simplewebp, void *buffer, void *s
 
 	if (simplewebp->webp_type == 0)
 	{
-		struct simplewebp__yuvdst dest;
+		struct swebp__yuvdst dest;
 		simplewebp_error err;
-		unsigned char *mem, *orig_mem;
+		simplewebp_u8 *mem, *orig_mem;
 		size_t needed, yw, yh, uvw, uvh;
 
 		/* Calculate allocation size. The allocated memory layout is [y, a, u, v] */
@@ -4357,7 +4385,7 @@ simplewebp_error simplewebp_decode(simplewebp *simplewebp, void *buffer, void *s
 		uvh = (yh + 1) / 2;
 		needed = (yw * yh * 2) + (uvw * uvh * 2);
 
-		mem = orig_mem = (unsigned char *) simplewebp->allocator.alloc(needed);
+		mem = orig_mem = (simplewebp_u8 *) simplewebp->allocator.alloc(needed);
 		if (mem == NULL)
 			return SIMPLEWEBP_ALLOC_ERROR;
 
@@ -4369,14 +4397,14 @@ simplewebp_error simplewebp_decode(simplewebp *simplewebp, void *buffer, void *s
 		mem += uvw * uvh;
 		dest.v = mem;
 
-		err = simplewebp__decode_lossy(simplewebp, &dest, settings);
+		err = swebp__decode_lossy(simplewebp, &dest, settings);
 		if (err != SIMPLEWEBP_NO_ERROR)
 		{
 			simplewebp->allocator.free(orig_mem);
 			return err;
 		}
 
-		simplewebp__yuva2rgba(&dest, yw, yh, (unsigned char *) buffer);
+		swebp__yuva2rgba(&dest, yw, yh, (simplewebp_u8 *) buffer);
 		simplewebp->allocator.free(orig_mem);
 		return SIMPLEWEBP_NO_ERROR;
 	}
@@ -4387,25 +4415,25 @@ simplewebp_error simplewebp_decode(simplewebp *simplewebp, void *buffer, void *s
 
 #ifndef SIMPLEWEBP_DISABLE_STDIO
 
-static size_t simplewebp__stdfile_read(size_t size, void *dest, void *userdata)
+static size_t swebp__stdfile_read(size_t size, void *dest, void *userdata)
 {
 	FILE *f = (FILE *) userdata;
 	return fread(dest, 1, size, f);
 }
 
-static int simplewebp__stdfile_seek(size_t pos, void *userdata)
+static simplewebp_bool swebp__stdfile_seek(size_t pos, void *userdata)
 {
 	FILE *f = (FILE *) userdata;
 	return fseek(f, (long) pos, SEEK_SET) == 0;
 }
 
-static void simplewebp__stdfile_close(void *userdata)
+static void swebp__stdfile_close(void *userdata)
 {
 	FILE *f = (FILE *) userdata;
 	fclose(f);
 }
 
-static size_t simplewebp__stdfile_tell(void *userdata)
+static size_t swebp__stdfile_tell(void *userdata)
 {
 	FILE *f = (FILE *) userdata;
 	return ftell(f);
@@ -4414,10 +4442,10 @@ static size_t simplewebp__stdfile_tell(void *userdata)
 simplewebp_error simplewebp_input_from_file(FILE *file, simplewebp_input *out)
 {
 	out->userdata = file;
-	out->read = simplewebp__stdfile_read;
-	out->seek = simplewebp__stdfile_seek;
-	out->tell = simplewebp__stdfile_tell;
-	out->close = simplewebp__stdfile_close;
+	out->read = swebp__stdfile_read;
+	out->seek = swebp__stdfile_seek;
+	out->tell = swebp__stdfile_tell;
+	out->close = swebp__stdfile_close;
 	return SIMPLEWEBP_NO_ERROR;
 }
 
