@@ -356,12 +356,6 @@ struct swebp__segment_header
 	simplewebp_i8 quantizer[4], filter_strength[4];
 };
 
-struct swebp__random
-{
-	simplewebp_i32 index1, index2, amp;
-	simplewebp_u32 tab[55];
-};
-
 /* Bit reader and boolean decoder */
 struct swebp__bdec
 {
@@ -400,9 +394,6 @@ struct swebp__vp8
 
 	simplewebp_u32 nparts_minus_1;
 	struct swebp__bdec parts[8];
-
-	simplewebp_i32 dither;
-	struct swebp__random dither_rng;
 
 	struct swebp__quantmat dqm[4];
 
@@ -2758,24 +2749,6 @@ static void swebp__predchroma8(simplewebp_u8 num, simplewebp_u8 *out)
 	}
 }
 
-static void swebp__dither_combine_8x8(const simplewebp_u8 *dither, simplewebp_u8 *out, simplewebp_i32 stride)
-{
-	simplewebp_i32 i, j, delta0, delta1;
-
-	for (j = 0; j < 8; j++)
-	{
-		for (i = 0; i < 8; i++)
-		{
-			delta0 = dither[i] - 128;
-			delta1 = (delta0 + 8) >> 4;
-			out[i] = swebp__clip8b(out[i] + delta1);
-		}
-
-		out += stride;
-		dither += 8;
-	}
-}
-
 /* RFC 6386 section 11.5 */
 static const simplewebp_u8 swebp__modes_proba[10][10][9] = {
 	{ { 231, 120, 48, 89, 115, 113, 120, 152, 112 },
@@ -2892,39 +2865,6 @@ static const simplewebp_u32 swebp__random_table[55] = {
 	0x35db3b68, 0x2b081e83, 0x77ce6b95, 0x5181e5f0, 0x78853bbc, 0x009f9494,
 	0x27e5ed3c
 };
-
-static void swebp__random_init(struct swebp__random *rng, float dithering)
-{
-	memcpy(rng->tab, swebp__random_table, sizeof(rng->tab));
-	rng->index1 = 0;
-	rng->index2 = 31;
-	rng->amp = (dithering < 0.0f) ? 0 : (dithering > 1.0f) ? 256 : (simplewebp_u32) (256 * dithering);
-}
-
-/* 
-Returns a centered pseudo-random number with 'num_bits' amplitude.
-(uses D.Knuth's Difference-based random generator).
-'amp' is in VP8_RANDOM_DITHER_FIX fixed-point precision.
-*/
-static simplewebp_i32 swebp__random_bits2(struct swebp__random *rng, simplewebp_i32 num_bits, simplewebp_i32 amp)
-{
-	simplewebp_i32 diff;
-
-	assert((num_bits + 8) <= 31);
-	diff = rng->tab[rng->index1];
-	if (diff < 0)
-		diff += (1u << 31);
-	rng->tab[rng->index1] = diff;
-	if (++rng->index1 == 55)
-		rng->index1 = 0;
-	if (++rng->index2 == 55)
-		rng->index2 = 0;
-
-	diff = (simplewebp_i32) ((((simplewebp_u32) diff) << 1) >> (32 - num_bits));
-	diff = (diff * amp) >> 8;
-	diff += (1 << (num_bits - 1));
-	return diff;
-}
 
 static const simplewebp_u8 swebp__bands[17] = {
 	0, 1, 2, 3, 6, 4, 5, 6, 6, 6, 6, 6, 6, 6, 6, 7, 0
@@ -3704,21 +3644,6 @@ static void swebp__yuv2rgb_plain(simplewebp_u8 y, simplewebp_u8 u, simplewebp_u8
 	rgb[2] = swebp__yuv2rgb_clip8(yhi + swebp__multhi(u, 33050) - 17685);
 }
 
-static simplewebp_u8 swebp__interpolate(simplewebp_u8 a, simplewebp_u8 b)
-{
-	return (simplewebp_u8) (((simplewebp_u32) a + b) / 2);
-
-}
-
-static simplewebp_u8 swebp__interpolate2(simplewebp_u8 tl, simplewebp_u8 tr, simplewebp_u8 bl, simplewebp_u8 br)
-{
-	simplewebp_u8 tm, bm;
-
-	tm = swebp__interpolate(tl, tr);
-	bm = swebp__interpolate(bl, br);
-	return swebp__interpolate(tm, bm);
-}
-
 static simplewebp_u8 swebp__do_uv_fancy_upsampling(simplewebp_u8 a, simplewebp_u8 b, simplewebp_u8 c, simplewebp_u8 d, simplewebp_i8 x, simplewebp_i8 y)
 {
 	/* X and Y must be 0 or 1*/
@@ -4038,11 +3963,6 @@ static simplewebp_error swebp__vp8_process_row(struct swebp__vp8 *vp8d, struct s
 			}
 		}
 
-		if (vp8d->dither)
-		{
-			/* TODO dither row */
-		}
-
 		{
 			/* Write YUV */
 			simplewebp_u8 *y_out, *u_out, *v_out;
@@ -4069,12 +3989,6 @@ static simplewebp_error swebp__vp8_process_row(struct swebp__vp8 *vp8d, struct s
 			if (y_end > vp8d->picture_header.height)
 				y_end = vp8d->picture_header.height;
 
-			if (vp8d->alpha_data)
-			{
-				/* TODO: Alpha Channel */
-			}
-
-			/*swebp__yuv2rgba(y_out, u_out, v_out, y_start, y_end, vp8d->cache_y_stride, vp8d->cache_uv_stride, vp8d->picture_header.width, rgbout);*/
 			{
 				/* Copy YUV buffer */
 				simplewebp_i32 row, iwidth, iwidth2, uv_start, uv_end;
@@ -4086,11 +4000,7 @@ static simplewebp_error swebp__vp8_process_row(struct swebp__vp8 *vp8d, struct s
 
 				/* Copy Y and A buffer */
 				for (row = y_start; row < y_end; row++)
-				{
 					memcpy(destination->y + row * iwidth, y_out + (row - y_start) * vp8d->cache_y_stride, iwidth);
-					/* TODO: Alpha decoding */
-					memset(destination->a + row * iwidth, 255u, iwidth);
-				}
 
 				/* Copy U and V buffer */
 				for (row = uv_start; row < uv_end; row++)
@@ -4148,13 +4058,15 @@ static simplewebp_error swebp__decode_lossy(simplewebp *simplewebp, struct swebp
 	simplewebp_u8 *vp8buffer, *decoder_mem;
 	struct swebp__vp8 *vp8d;
 	simplewebp_error err;
+	size_t image_width, image_height;
 
 	vp8d = &simplewebp->decoder.vp8;
+	input = simplewebp->vp8_input;
 
-	if (!swebp__seek(0, &simplewebp->vp8_input))
+	if (!swebp__seek(0, &input))
 		return SIMPLEWEBP_IO_ERROR;
 
-	vp8size = swebp__proxy_size(simplewebp->vp8_input.userdata);
+	vp8size = swebp__proxy_size(input.userdata);
 	/* Sanity check */
 	if (vp8d->frame_header.partition_length > vp8size)
 		return SIMPLEWEBP_CORRUPT_ERROR;
@@ -4164,24 +4076,16 @@ static simplewebp_error swebp__decode_lossy(simplewebp *simplewebp, struct swebp
 	if (vp8buffer == NULL)
 		return SIMPLEWEBP_ALLOC_ERROR;
 
-	if (!swebp__read2(vp8size, vp8buffer, &simplewebp->vp8_input))
+	if (!swebp__read2(vp8size, vp8buffer, &input))
 	{
 		simplewebp->allocator.free(simplewebp->allocator.userdata, vp8buffer);
 		return SIMPLEWEBP_CORRUPT_ERROR;
-	}
-
-	err = simplewebp_input_from_memory(vp8buffer, vp8size, &input, &simplewebp->allocator);
-	if (err != SIMPLEWEBP_NO_ERROR)
-	{
-		simplewebp->allocator.free(simplewebp->allocator.userdata, vp8buffer);
-		return err;
 	}
 
 	/* Let's skip already-read stuff at swebp__load_lossy */
 	if (!swebp__seek(10, &input))
 	{
 		simplewebp->allocator.free(simplewebp->allocator.userdata, vp8buffer);
-		simplewebp_close_input(&input);
 		return SIMPLEWEBP_CORRUPT_ERROR;
 	}
 
@@ -4189,7 +4093,6 @@ static simplewebp_error swebp__decode_lossy(simplewebp *simplewebp, struct swebp
 	if (err != SIMPLEWEBP_NO_ERROR)
 	{
 		simplewebp->allocator.free(simplewebp->allocator.userdata, vp8buffer);
-		simplewebp_close_input(&input);
 		return err;
 	}
 
@@ -4200,7 +4103,6 @@ static simplewebp_error swebp__decode_lossy(simplewebp *simplewebp, struct swebp
 	if (decoder_mem == NULL)
 	{
 		simplewebp->allocator.free(simplewebp->allocator.userdata, vp8buffer);
-		simplewebp_close_input(&input);
 		return SIMPLEWEBP_ALLOC_ERROR;
 	}
 
@@ -4209,7 +4111,6 @@ static simplewebp_error swebp__decode_lossy(simplewebp *simplewebp, struct swebp
 	{
 		simplewebp->allocator.free(simplewebp->allocator.userdata, decoder_mem);
 		simplewebp->allocator.free(simplewebp->allocator.userdata, vp8buffer);
-		simplewebp_close_input(&input);
 		return err;
 	}
 
@@ -4220,7 +4121,11 @@ static simplewebp_error swebp__decode_lossy(simplewebp *simplewebp, struct swebp
 	vp8d->mem_size = 0;
 	memset(&vp8d->br, 0, sizeof(struct swebp__bdec));
 	vp8d->ready = 0;
-	simplewebp_close_input(&input);
+
+	/* TODO: Alpha */
+	image_width = simplewebp->decoder.vp8.picture_header.width;
+	image_height = simplewebp->decoder.vp8.picture_header.height;
+	memset(destination->a, 255, image_width * image_height);
 
 	return SIMPLEWEBP_NO_ERROR;
 }
@@ -4229,11 +4134,12 @@ simplewebp_error simplewebp_decode_yuva(simplewebp *simplewebp, void *y_buffer, 
 {
 	if (simplewebp->webp_type == 0)
 	{
-		struct swebp__yuvdst destination;
-		destination.y = (simplewebp_u8 *) y_buffer;
-		destination.u = (simplewebp_u8 *) u_buffer;
-		destination.v = (simplewebp_u8 *) u_buffer;
-		destination.a = (simplewebp_u8 *) u_buffer;
+		struct swebp__yuvdst destination = {
+			(simplewebp_u8 *) y_buffer,
+			(simplewebp_u8 *) u_buffer,
+			(simplewebp_u8 *) v_buffer,
+			(simplewebp_u8 *) a_buffer
+		};
 		return swebp__decode_lossy(simplewebp, &destination, settings);
 	}
 
@@ -4255,7 +4161,7 @@ simplewebp_error simplewebp_decode(simplewebp *simplewebp, void *buffer, void *s
 		yh = simplewebp->decoder.vp8.picture_header.height;
 		uvw = (yw + 1) / 2;
 		uvh = (yh + 1) / 2;
-		needed = (yw * yh * 2) + (uvw * uvh * 2);
+		needed = ((yw * yh) + (uvw * uvh)) * 2;
 
 		mem = orig_mem = (simplewebp_u8 *) simplewebp->allocator.alloc(simplewebp->allocator.userdata, needed);
 		if (mem == NULL)
