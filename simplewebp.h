@@ -3704,24 +3704,6 @@ static void swebp__yuv2rgb_plain(simplewebp_u8 y, simplewebp_u8 u, simplewebp_u8
 	rgb[2] = swebp__yuv2rgb_clip8(yhi + swebp__multhi(u, 33050) - 17685);
 }
 
-static void swebp__yuv2rgba(simplewebp_u8 *y_out, simplewebp_u8 *u_out, simplewebp_u8 *v_out, simplewebp_i32 y_start, simplewebp_i32 y_end, simplewebp_i32 y_stride, simplewebp_i32 uv_stride, simplewebp_i32 width, simplewebp_u8 *rgbout)
-{
-	simplewebp_i32 y, x;
-
-	for (y = y_start; y < y_end; y++)
-	{
-		for (x = 0; x < width; x++)
-		{
-			simplewebp_i32 iy, iuv;
-			iy = (y - y_start) * y_stride + x;
-			iuv = ((y - y_start) / 2) * uv_stride + x / 2;
-
-			swebp__yuv2rgb_plain(y_out[iy], u_out[iuv], v_out[iuv], &rgbout[(y * width + x) * 4]);
-			rgbout[(y * width + x) * 4 + 3] = 255u;
-		}
-	}
-}
-
 static simplewebp_u8 swebp__interpolate(simplewebp_u8 a, simplewebp_u8 b)
 {
 	return (simplewebp_u8) (((simplewebp_u32) a + b) / 2);
@@ -3783,7 +3765,6 @@ static simplewebp_u8 swebp__uv_fancy_upsample(simplewebp_u8 *v, size_t left_x, s
 static void swebp__yuva2rgba(struct swebp__yuvdst *yuva, size_t w, size_t h, simplewebp_u8 *rgba)
 {
 	size_t y, x, uvw, uvh;
-	simplewebp_u8 buf[4];
 
 	uvw = (w + 1) / 2;
 	uvh = (h + 1) / 2;
