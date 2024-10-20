@@ -98,17 +98,26 @@ typedef struct simplewebp_allocator
 {
 	/**
 	 * @brief Allocate block of memory.
+	 * @param userdata Allocator-specific data.
 	 * @param size Amount of bytes to allocate.
 	 * @return Pointer to tbe memory block, or `NULL` on failure.
 	 */
-	void *(*alloc)(size_t size);
+	void *(*alloc)(void *userdata, size_t size);
 
 	/**
 	 * @brief Free allocated memory.
+	 * @param userdata Allocator-specific data.
 	 * @param mem Valid pointer to the memory allocated by `alloc` function.
 	 * @note Passing `NULL` is undefined behavior, although most implementation treat it as no-op.
 	 */
-	void (*free)(void *mem);
+	void (*free)(void *userdata, void *mem);
+
+	/**
+	 * @brief Allocator-specific data.
+	 * 
+	 * If your allocator is stateless, simply pass `NULL`.
+	 */
+	void *userdata;
 } simplewebp_allocator;
 
 /**
@@ -565,7 +574,17 @@ struct simplewebp_memoryinput_data
 	size_t size, pos;
 };
 
-static simplewebp_allocator simplewebp_default_allocator = {malloc, free};
+static void *swebp__malloc(void *_unused, size_t size)
+{
+	return malloc(size);
+}
+
+static void swebp__free(void *_unused, void *mem)
+{
+	free(mem);
+}
+
+static simplewebp_allocator swebp__default_allocator = {swebp__malloc, swebp__free, NULL};
 
 size_t simplewebp_version(void)
 {
@@ -635,7 +654,7 @@ static simplewebp_bool swebp__memoryinput_seek(size_t pos, void *userdata)
 static void swebp__memoryinput_close(void *userdata)
 {
 	struct simplewebp_memoryinput_data *input_data = (struct simplewebp_memoryinput_data *) userdata;
-	input_data->allocator.free(input_data);
+	input_data->allocator.free(input_data->allocator.userdata, input_data);
 }
 
 static size_t swebp__memoryinput_tell(void *userdata)
@@ -649,9 +668,12 @@ simplewebp_error simplewebp_input_from_memory(void *data, size_t size, simpleweb
 	struct simplewebp_memoryinput_data *input_data;
 
 	if (allocator == NULL)
-		allocator = &simplewebp_default_allocator;
+		allocator = &swebp__default_allocator;
 
-	input_data = (struct simplewebp_memoryinput_data *) allocator->alloc(sizeof(struct simplewebp_memoryinput_data));
+	input_data = (struct simplewebp_memoryinput_data *) allocator->alloc(
+		allocator->userdata,
+		sizeof(struct simplewebp_memoryinput_data)
+	);
 	if (input_data == NULL)
 		return SIMPLEWEBP_ALLOC_ERROR;
 
@@ -749,7 +771,7 @@ static simplewebp_bool swebp__proxy_seek(size_t pos, void *userdata)
 static void swebp__proxy_close(void *userdata)
 {
 	struct simplewebp_input_proxy *proxy = (struct simplewebp_input_proxy *) userdata;
-	proxy->allocator.free(proxy);
+	proxy->allocator.free(proxy->allocator.userdata, proxy);
 }
 
 static size_t swebp__proxy_size(void *userdata)
@@ -760,7 +782,10 @@ static size_t swebp__proxy_size(void *userdata)
 
 static simplewebp_error swebp__proxy_create(const simplewebp_allocator *allocator, simplewebp_input *input, simplewebp_input *out, size_t start, size_t length)
 {
-	struct simplewebp_input_proxy *proxy = (struct simplewebp_input_proxy *) allocator->alloc(sizeof(struct simplewebp_input_proxy));
+	struct simplewebp_input_proxy *proxy = (struct simplewebp_input_proxy *) allocator->alloc(
+		allocator->userdata,
+		sizeof(struct simplewebp_input_proxy)
+	);
 	if (proxy == NULL)
 		return SIMPLEWEBP_ALLOC_ERROR;
 
@@ -908,7 +933,7 @@ simplewebp_error simplewebp_load(simplewebp_input *input, const simplewebp_alloc
 	size_t chunk_size;
 
 	if (allocator == NULL)
-		allocator = &simplewebp_default_allocator;
+		allocator = &swebp__default_allocator;
 
 	*out = NULL;
 
@@ -930,7 +955,7 @@ simplewebp_error simplewebp_load(simplewebp_input *input, const simplewebp_alloc
 	}
 
 	/* Allocate simplewebp structure */
-	result = allocator->alloc(sizeof(simplewebp));
+	result = allocator->alloc(allocator->userdata, sizeof(simplewebp));
 	if (result == NULL)
 		return SIMPLEWEBP_ALLOC_ERROR;
 	memset(result, 0, sizeof(simplewebp));
@@ -1068,7 +1093,7 @@ void simplewebp_unload(simplewebp *simplewebp)
 
 	}
 
-	simplewebp->allocator.free(simplewebp);
+	simplewebp->allocator.free(simplewebp->allocator.userdata, simplewebp);
 }
 
 void simplewebp_get_dimensions(simplewebp *simplewebp, size_t *width, size_t *height)
@@ -3312,7 +3337,7 @@ static simplewebp_u8 *swebp__vp8_alloc_memory(struct swebp__vp8 *vp8d, simpleweb
 		+ cache_size
 		+ alpha_size + 31;
 
-	mem = orig_mem = (simplewebp_u8 *) allocator->alloc(needed);
+	mem = orig_mem = (simplewebp_u8 *) allocator->alloc(allocator->userdata, needed);
 
 	if (mem)
 	{
@@ -4154,27 +4179,27 @@ static simplewebp_error swebp__decode_lossy(simplewebp *simplewebp, struct swebp
 		return SIMPLEWEBP_CORRUPT_ERROR;
 
 	/* Read all VP8 chunk */
-	vp8buffer = (simplewebp_u8 *) simplewebp->allocator.alloc(vp8size);
+	vp8buffer = (simplewebp_u8 *) simplewebp->allocator.alloc(simplewebp->allocator.userdata, vp8size);
 	if (vp8buffer == NULL)
 		return SIMPLEWEBP_ALLOC_ERROR;
 
 	if (!swebp__read2(vp8size, vp8buffer, &simplewebp->vp8_input))
 	{
-		simplewebp->allocator.free(vp8buffer);
+		simplewebp->allocator.free(simplewebp->allocator.userdata, vp8buffer);
 		return SIMPLEWEBP_CORRUPT_ERROR;
 	}
 
 	err = simplewebp_input_from_memory(vp8buffer, vp8size, &input, &simplewebp->allocator);
 	if (err != SIMPLEWEBP_NO_ERROR)
 	{
-		simplewebp->allocator.free(vp8buffer);
+		simplewebp->allocator.free(simplewebp->allocator.userdata, vp8buffer);
 		return err;
 	}
 
 	/* Let's skip already-read stuff at swebp__load_lossy */
 	if (!swebp__seek(10, &input))
 	{
-		simplewebp->allocator.free(vp8buffer);
+		simplewebp->allocator.free(simplewebp->allocator.userdata, vp8buffer);
 		simplewebp_close_input(&input);
 		return SIMPLEWEBP_CORRUPT_ERROR;
 	}
@@ -4182,7 +4207,7 @@ static simplewebp_error swebp__decode_lossy(simplewebp *simplewebp, struct swebp
 	err = swebp__load_vp8_header(&simplewebp->decoder.vp8, vp8buffer + 10, vp8size - 10);
 	if (err != SIMPLEWEBP_NO_ERROR)
 	{
-		simplewebp->allocator.free(vp8buffer);
+		simplewebp->allocator.free(simplewebp->allocator.userdata, vp8buffer);
 		simplewebp_close_input(&input);
 		return err;
 	}
@@ -4193,7 +4218,7 @@ static simplewebp_error swebp__decode_lossy(simplewebp *simplewebp, struct swebp
 
 	if (decoder_mem == NULL)
 	{
-		simplewebp->allocator.free(vp8buffer);
+		simplewebp->allocator.free(simplewebp->allocator.userdata, vp8buffer);
 		simplewebp_close_input(&input);
 		return SIMPLEWEBP_ALLOC_ERROR;
 	}
@@ -4201,15 +4226,15 @@ static simplewebp_error swebp__decode_lossy(simplewebp *simplewebp, struct swebp
 	err = swebp__vp8_parse_frame(vp8d, destination);
 	if (err != SIMPLEWEBP_NO_ERROR)
 	{
-		simplewebp->allocator.free(decoder_mem);
-		simplewebp->allocator.free(vp8buffer);
+		simplewebp->allocator.free(simplewebp->allocator.userdata, decoder_mem);
+		simplewebp->allocator.free(simplewebp->allocator.userdata, vp8buffer);
 		simplewebp_close_input(&input);
 		return err;
 	}
 
 	/* Exit critical and cleanup */
-	simplewebp->allocator.free(decoder_mem);
-	simplewebp->allocator.free(vp8buffer);
+	simplewebp->allocator.free(simplewebp->allocator.userdata, decoder_mem);
+	simplewebp->allocator.free(simplewebp->allocator.userdata, vp8buffer);
 	vp8d->mem = NULL;
 	vp8d->mem_size = 0;
 	memset(&vp8d->br, 0, sizeof(struct swebp__bdec));
@@ -4251,7 +4276,7 @@ simplewebp_error simplewebp_decode(simplewebp *simplewebp, void *buffer, void *s
 		uvh = (yh + 1) / 2;
 		needed = (yw * yh * 2) + (uvw * uvh * 2);
 
-		mem = orig_mem = (simplewebp_u8 *) simplewebp->allocator.alloc(needed);
+		mem = orig_mem = (simplewebp_u8 *) simplewebp->allocator.alloc(simplewebp->allocator.userdata, needed);
 		if (mem == NULL)
 			return SIMPLEWEBP_ALLOC_ERROR;
 
@@ -4266,12 +4291,12 @@ simplewebp_error simplewebp_decode(simplewebp *simplewebp, void *buffer, void *s
 		err = swebp__decode_lossy(simplewebp, &dest, settings);
 		if (err != SIMPLEWEBP_NO_ERROR)
 		{
-			simplewebp->allocator.free(orig_mem);
+			simplewebp->allocator.free(simplewebp->allocator.userdata, orig_mem);
 			return err;
 		}
 
 		swebp__yuva2rgba(&dest, yw, yh, (simplewebp_u8 *) buffer);
-		simplewebp->allocator.free(orig_mem);
+		simplewebp->allocator.free(simplewebp->allocator.userdata, orig_mem);
 		return SIMPLEWEBP_NO_ERROR;
 	}
 	else
