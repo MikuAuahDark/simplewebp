@@ -998,7 +998,10 @@ static simplewebp_error simplewebp__load_extended(const simplewebp_allocator *al
 
 	while (1)
 	{
+		size_t riff_pos, chunk_size;
+
 		handled = 0;
+		riff_pos = simplewebp__tell(riff_input); /* before chunk name and size */
 		err = simplewebp__get_input_chunk_4cc(allocator, riff_input, &chunk, temp);
 		if (err != SIMPLEWEBP_NO_ERROR)
 		{
@@ -1024,7 +1027,10 @@ static simplewebp_error simplewebp__load_extended(const simplewebp_allocator *al
 		}
 
 		/* Skip this chunk over */
-		if (!simplewebp__seek(simplewebp__proxy_size(chunk.userdata), &chunk))
+		/* We can't just seek the proxy. If the chunk is odd-sized then it
+		 * doesn't work (RIFF requires chunk to be aligned to word boundary) */
+		chunk_size = (simplewebp__proxy_size(chunk.userdata) + 1) & (~((size_t) 1));
+		if (!simplewebp__seek(riff_pos + 8 + chunk_size, riff_input))
 		{
 			if (alpha_input.userdata)
 				simplewebp_close_input(&alpha_input);
