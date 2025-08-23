@@ -910,8 +910,8 @@ static simplewebp_error swebp__alpha_init(struct swebp__alpha *alpha, simplewebp
 	if (!swebp__read2(1, &flags, input))
 		return SIMPLEWEBP_IO_ERROR;
 
-	alpha->filter_method = (flags >> 4) & 3;
-	alpha->is_lossless_compressed = (flags >> 6) > 0;
+	alpha->filter_method = (flags >> 2) & 3;
+	alpha->is_lossless_compressed = (flags & 3) > 0;
 
 	return SIMPLEWEBP_NO_ERROR;
 }
@@ -981,12 +981,13 @@ static simplewebp_error swebp__alpha_decode(simplewebp *simplewebp, simplewebp_u
 	if (simplewebp->alph_input.userdata)
 	{
 		if (simplewebp->alpha_decoder.is_lossless_compressed)
+		{
 			/* TODO */
-			return SIMPLEWEBP_UNSUPPORTED_ERROR;
+		}
 		else
 			return swebp__alpha_decode_simple(simplewebp, dst);
 	}
-	else
+
 	{
 		size_t width, height;
 		simplewebp_get_dimensions(simplewebp, &width, &height);
@@ -4235,7 +4236,6 @@ simplewebp_error simplewebp_decode_yuva(simplewebp *simplewebp, void *y_buffer, 
 
 simplewebp_error simplewebp_decode(simplewebp *simplewebp, void *buffer, void *settings)
 {
-
 	if (simplewebp->webp_type == 0)
 	{
 		struct swebp__yuvdst dest;
