@@ -403,7 +403,7 @@ struct simplewebp__vp8_decoder
 	int alpha_dithering;
 };
 
-static const char simplewebp__longlong_must_64bit[sizeof(unsigned long long) == 8 ? 1 : -1];
+static char simplewebp__longlong_must_64bit[sizeof(unsigned long long) == 8 ? 1 : -1];
 
 struct simplewebp__vp8l_bitread
 {
@@ -577,7 +577,7 @@ static size_t simplewebp__memoryinput_read(size_t size, void *dest, void *userda
 
 	if (nextpos >= input_data->size)
 	{
-		readed = size - (input_data->size - nextpos);
+		readed = input_data->size - input_data->pos;
 		nextpos = input_data->size;
 	}
 	else
