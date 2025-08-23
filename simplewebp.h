@@ -1031,7 +1031,7 @@ simplewebp_error simplewebp_load(simplewebp_input *input, const simplewebp_alloc
 	}
 
 	/* Allocate simplewebp structure */
-	result = allocator->alloc(allocator->userdata, sizeof(simplewebp));
+	result = (simplewebp *) allocator->alloc(allocator->userdata, sizeof(simplewebp));
 	if (result == NULL)
 		return SIMPLEWEBP_ALLOC_ERROR;
 	memset(result, 0, sizeof(simplewebp));
@@ -1115,7 +1115,7 @@ simplewebp_error simplewebp_load(simplewebp_input *input, const simplewebp_alloc
 			/* Input unused. */
 			simplewebp_close_input(&chunk_input_proxy);
 
-		if (!swebp__seek(current_position + chunk_size, &result->riff_input))
+		if (!swebp__seek(current_position + (chunk_size + 1) & (~((size_t) 1)), &result->riff_input))
 		{
 			err = SIMPLEWEBP_IO_ERROR;
 			break;
