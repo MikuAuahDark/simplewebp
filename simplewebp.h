@@ -431,7 +431,7 @@ struct swebp__vp8
 	simplewebp_i32 alpha_dithering;
 };
 
-static const char swebp__longlong_must_64bit[sizeof(simplewebp_u64) == 8 ? 1 : -1];
+static char swebp__longlong_must_64bit[sizeof(unsigned long long) == 8 ? 1 : -1];
 
 struct swebp__vp8l_bdec
 {
@@ -615,7 +615,7 @@ static size_t swebp__memoryinput_read(size_t size, void *dest, void *userdata)
 
 	if (nextpos >= input_data->size)
 	{
-		readed = size - (input_data->size - nextpos);
+		readed = input_data->size - input_data->pos;
 		nextpos = input_data->size;
 	}
 	else
