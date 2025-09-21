@@ -440,64 +440,6 @@ struct swebp__vp8l_bdec
 	simplewebp_u8 eos;
 };
 
-struct swebp__vp8l_color_cache
-{
-	simplewebp_u32 *colors;
-	simplewebp_i32 hash_shift, hash_bits;
-};
-
-struct swebp__huffman_code
-{
-	simplewebp_u8 bits;
-	simplewebp_u16 value;
-};
-
-struct swebp__huffman_code_32
-{
-	simplewebp_i32 bits;
-	simplewebp_u32 value;
-};
-
-struct swebp__htree_group
-{
-	struct swebp__huffman_code *htrees[5];
-	simplewebp_i8 is_trivial_literal, is_trivial_code, use_packed_table;
-	simplewebp_u32 literal_arb;
-	struct swebp__huffman_code_32 packed_table[64];
-};
-
-struct swebp__huffman_tables_segment
-{
-	struct swebp__huffman_code *start, *current;
-	struct swebp__huffman_tables_segment *next;
-	simplewebp_i32 size;
-};
-
-struct swebp__huffman_tables
-{
-	struct swebp__huffman_tables_segment root, *current;
-};
-
-struct swebp__vp8l_metadata
-{
-	simplewebp_i32 color_cache_size;
-	struct swebp__vp8l_color_cache color_cache, saved_color_cache;
-
-	simplewebp_i32 huffman_mask, huffman_subsample_bits, huffman_xsize;
-	simplewebp_u32 *huffman_image;
-	simplewebp_i32 hum_htree_groups;
-	struct swebp__htree_group *htree_groups;
-	struct swebp__huffman_tables huffman_tables;
-};
-
-struct swebp__vp8l_transform
-{
-	/* Type is: predictor (0), x-color (1), subgreen (2), and colorindex (3) */
-	simplewebp_i32 type;
-	simplewebp_i32 bits, xsize, ysize;
-	simplewebp_u32 *data;
-};
-
 struct swebp__rescaler
 {
 	simplewebp_u8* dst;
@@ -518,18 +460,8 @@ struct swebp__rescaler
 
 struct swebp__vp8l_decoder
 {
-	simplewebp_u32 *pixels, *argb_cache;
-	simplewebp_i32 saved_last_pixel;
-
 	simplewebp_u32 width, height;
 
-	struct swebp__vp8l_metadata header;
-
-	simplewebp_i32 next_transform;
-	struct swebp__vp8l_transform transforms[4];
-	simplewebp_u32 transforms_seen;
-
-	simplewebp_u8 *rescaler_mem;
 	struct swebp__rescaler rescaler;
 };
 
@@ -886,10 +818,41 @@ static simplewebp_error swebp__load_lossy(simplewebp_input *vp8_input, simpleweb
 	return SIMPLEWEBP_NO_ERROR;
 }
 
+static void swebp__vp8l_bitread_init(struct swebp__vp8l_bdec *bdec, simplewebp_u8 *buf, size_t size)
+{
+	bdec->buf = buf;
+	bdec->len = size;
+	bdec->bit_pos = 0;
+	bdec->eos = 0;
+}
+
+static simplewebp_u32 swebp__vp8l_bitread_read(struct swebp__vp8l_bdec *bdec, int count)
+{
+	int i;
+	simplewebp_u32 value = 0;
+
+	for (i = 0; i < count; i++, bdec->bit_pos++)
+	{
+		simplewebp_u8 b;
+		size_t bytepos = bdec->bit_pos >> 3;
+
+		if (bytepos >= bdec->len)
+		{
+			bdec->eos = 1;
+			break;
+		}
+
+		b = bdec->buf[bytepos];
+		value |= ((b >> (bdec->bit_pos & 7)) & 1) << i;
+	}
+
+	return value;
+}
+
 static simplewebp_error swebp__load_lossless(simplewebp_input *vp8l_input, simplewebp *result)
 {
 	simplewebp_u8 temp[5];
-	simplewebp_u32 header;
+	struct swebp__vp8l_bdec br;
 
 	if (!swebp__seek(0, vp8l_input))
 		return SIMPLEWEBP_IO_ERROR;
@@ -900,16 +863,18 @@ static simplewebp_error swebp__load_lossless(simplewebp_input *vp8l_input, simpl
 	if (temp[0] != 0x2F)
 		return SIMPLEWEBP_CORRUPT_ERROR;
 
-	header = swebp__to_uint32(temp + 1);
-	if ((header >> 29) != 0)
+	swebp__vp8l_bitread_init(&br, temp + 1, 4);
+
+	/*result->vp8_input = *vp8l_input;*/
+	memset(&result->decoder.vp8l, 0, sizeof(struct swebp__vp8l_decoder));
+	result->decoder.vp8l.width = swebp__vp8l_bitread_read(&br, 14) + 1;
+	result->decoder.vp8l.height = swebp__vp8l_bitread_read(&br, 14) + 1;
+
+	swebp__vp8l_bitread_read(&br, 1); /* alpha is used */
+	if (swebp__vp8l_bitread_read(&br, 3) != 0)
 		return SIMPLEWEBP_UNSUPPORTED_ERROR;
 
-	result->vp8_input = *vp8l_input;
-	memset(&result->decoder.vp8l, 0, sizeof(struct swebp__vp8l_decoder));
-	result->decoder.vp8l.width = (header & 0x3FF) + 1;
-	result->decoder.vp8l.height = ((header >> 14) & 0x3FF) + 1;
 	result->webp_type = 1;
-
 	return SIMPLEWEBP_NO_ERROR;
 }
 
@@ -994,6 +959,14 @@ static simplewebp_error swebp__alpha_decode_simple(simplewebp *simplewebp, simpl
 	return SIMPLEWEBP_NO_ERROR;
 }
 
+static simplewebp_error swebp__decode_lossless_bitstream(
+	simplewebp *simplewebp,
+	simplewebp_input *input,
+	size_t bitstreamsize,
+	struct swebp__pixel *rgba,
+	simplewebp_bool skipheader
+);
+
 static simplewebp_error swebp__alpha_decode_lossless(simplewebp *simplewebp, simplewebp_u8 *dst)
 {
 	size_t vp8lsize, width, height, i;
@@ -1006,15 +979,16 @@ static simplewebp_error swebp__alpha_decode_lossless(simplewebp *simplewebp, sim
 	if (!swebp__proxy_seek(1, simplewebp->alph_input.userdata))
 		return SIMPLEWEBP_IO_ERROR;
 
-	rgba = swebp__alloc(simplewebp, sizeof(struct swebp__pixel) * width * height);
+	rgba = (struct swebp__pixel*) swebp__alloc(simplewebp, sizeof(struct swebp__pixel) * width * height);
 	if (!rgba)
 		return SIMPLEWEBP_ALLOC_ERROR;
 
 	err = swebp__decode_lossless_bitstream(
 		simplewebp,
-		&simplewebp->vp8l_input,
+		&simplewebp->alph_input,
 		vp8lsize,
-		rgba
+		rgba,
+		1
 	);
 	if (err != SIMPLEWEBP_NO_ERROR)
 	{
@@ -1024,11 +998,7 @@ static simplewebp_error swebp__alpha_decode_lossless(simplewebp *simplewebp, sim
 
 	/* Pull green channel */
 	for (i = 0; i < width * height; i++)
-	{
-		*dst = rgba->g;
-		dst++;
-		rgba++;
-	}
+		dst[i] = rgba[i].g;
 	
 	swebp__dealloc(simplewebp, rgba);
 	return SIMPLEWEBP_NO_ERROR;
@@ -4278,37 +4248,6 @@ static simplewebp_error swebp__decode_lossy(simplewebp *simplewebp, struct swebp
 	return swebp__alpha_decode(simplewebp, destination->a);
 }
 
-static void swebp__vp8l_bitread_init(struct swebp__vp8l_bdec *bdec, simplewebp_u8 *buf, size_t size)
-{
-	bdec->buf = buf;
-	bdec->len = size;
-	bdec->bit_pos = 0;
-	bdec->eos = 0;
-}
-
-static simplewebp_u32 swebp__vp8l_bitread_read(struct swebp__vp8l_bdec *bdec, int count)
-{
-	int i;
-	simplewebp_u32 value = 0;
-
-	for (i = 0; i < count; i++, bdec->bit_pos++)
-	{
-		simplewebp_u8 b;
-		size_t bytepos = bdec->bit_pos >> 3;
-
-		if (bytepos >= bdec->len)
-		{
-			bdec->eos = 1;
-			break;
-		}
-
-		b = bdec->buf[bytepos];
-		value |= ((b >> (bdec->bit_pos & 7)) & 1) << i;
-	}
-
-	return value;
-}
-
 struct swebp__vp8l_code_node
 {
 	simplewebp_u16 child[2];
@@ -4379,7 +4318,10 @@ static void swebp__vp8l_insert_code(
 
 		index = *root;
 		if (index < size)
-			node = tree + ((*root = (*used)++) - size);
+		{
+			*root = (*used)++;
+			node = tree + (*root - size);
+		}
 		else
 			node = tree + (index - size);
 
@@ -4421,23 +4363,34 @@ static simplewebp_error swebp__vp8l_canonical_code(
 
 	for (i = 0; i < 16; i++)
 	{
-		simplewebp_u8 c = base[i];
+		simplewebp_u8 c = (simplewebp_u8) base[i];
 		base[i] = current_base;
 		current_base = (current_base + c) << 1;
 	}
 
 	if (treemem)
+		tree = treemem;
+	else
 	{
-		tree = swebp__alloc(simplewebp, sizeof(struct swebp__vp8l_code_node) * real_size);
+		tree = (struct swebp__vp8l_code_node*) swebp__alloc(
+			simplewebp,
+			sizeof(struct swebp__vp8l_code_node) * real_size
+		);
 		if (!tree)
 			return SIMPLEWEBP_ALLOC_ERROR;
+	}
+
+	for (i = 0; i < real_size; i++)
+	{
+		tree[i].child[0] = 0;
+		tree[i].child[1] = 0;
 	}
 
 	for (i = 0; i < size; i++)
 	{
 		simplewebp_u8 l = lengths[i];
 		if (l > 0)
-			swebp__vp8l_insert_code(tree, &root, size, i, base[l - 1]++, &used, l);
+			swebp__vp8l_insert_code(tree, &root, size, (simplewebp_u16) i, base[l - 1]++, &used, l);
 	}
 
 	code->size = size;
@@ -4446,6 +4399,21 @@ static simplewebp_error swebp__vp8l_canonical_code(
 	code->symbol[1] = (root >> 8) & 0xFF;
 
 	return SIMPLEWEBP_NO_ERROR;
+}
+
+static simplewebp_u16 swebp__vp8l_read_code(struct swebp__vp8l_bdec *br, struct swebp__vp8l_code *code)
+{
+	if (code->tree)
+	{
+		simplewebp_u16 index = code->symbol[0] | (((simplewebp_u16) code->symbol[1]) << 8);
+
+		while (index >= code->size)
+			index = code->tree[index - code->size].child[swebp__vp8l_bitread_read(br, 1)];
+
+		return index;
+	}
+	else
+		return code->symbol[code->size < 2 ? 0 : swebp__vp8l_bitread_read(br, 1)];
 }
 
 static simplewebp_error swebp__vp8l_decode_code_complex(
@@ -4499,7 +4467,7 @@ static simplewebp_error swebp__vp8l_decode_code_complex(
 		{
 			default:
 			case 0:
-				lengths[count++] = s;
+				lengths[count++] = (simplewebp_u8) s;
 				continue;
 				// fall through
 			case 1:
@@ -4517,7 +4485,7 @@ static simplewebp_error swebp__vp8l_decode_code_complex(
 			case 13:
 			case 14:
 			case 15:
-				lengths[count++] = p = s;
+				lengths[count++] = (simplewebp_u8) (p = s);
 				continue;
 			case 16:
 				s = 3 + swebp__vp8l_bitread_read(br, 2);
@@ -4540,7 +4508,7 @@ static simplewebp_error swebp__vp8l_decode_code_complex(
 		}
 
 		while (s--)
-			lengths[count++] = c;
+			lengths[count++] = (simplewebp_u8) c;
 	}
 	
 	err = swebp__vp8l_canonical_code(simplewebp, lengths, count, code, NULL);
@@ -4560,7 +4528,7 @@ static simplewebp_error swebp__vp8l_decode_code(
 		code->tree = NULL;
 		code->size = two_symbols + 1;
 		code->symbol[0] = swebp__vp8l_bitread_read(br, 1 + swebp__vp8l_bitread_read(br, 1) * 7);
-		code->symbol[1] = two_symbols ? swebp__vp8l_bitread_read(br, 8) : 8;
+		code->symbol[1] = two_symbols ? swebp__vp8l_bitread_read(br, 8) : 0;
 		return br->eos ? SIMPLEWEBP_IO_ERROR : SIMPLEWEBP_NO_ERROR;
 	}
 	else
@@ -4576,7 +4544,7 @@ static simplewebp_error swebp__vp8l_decode_group(
 {
 	size_t i;
 	simplewebp_u16 sizes[] = {
-        swebp__vp8l_litlen_count + (bits ? 1 << bits : 0),
+		(simplewebp_u16) (swebp__vp8l_litlen_count + (bits ? 1 << bits : 0)),
         swebp__vp8l_literals_count,
 		swebp__vp8l_literals_count,
 		swebp__vp8l_literals_count,
@@ -4608,24 +4576,6 @@ static simplewebp_error swebp__vp8l_decode_group(
 	return SIMPLEWEBP_NO_ERROR;
 }
 
-static simplewebp_u16 swebp__vp8l_read_code(struct swebp__vp8l_bdec *br, struct swebp__vp8l_code *code)
-{
-	struct swebp__vp8l_code_node *tree;
-	simplewebp_u16 size, index;
-
-	if (tree)
-	{
-		index = code->symbol[0] | (((simplewebp_u16) code->symbol[1]) << 8);
-
-		while (index >= size)
-			index = tree[index - size].child[swebp__vp8l_bitread_read(br, 1)];
-
-		return index;
-	}
-	else
-		return code->symbol[size < 2 ? 0 : swebp__vp8l_bitread_read(br, 1)];
-}
-
 static size_t swebp__hash_color(simplewebp_u8 bits, struct swebp__pixel c)
 {
 	size_t value = (c.a << 24) | (c.r << 16) | (c.g << 8) | c.b;
@@ -4646,7 +4596,7 @@ static size_t swebp__vp8l_lendst(struct swebp__vp8l_bdec *br, simplewebp_u16 c)
 		return c;
 
 	extra = (c - 2) >> 1;
-	return ((2 + (c & 1)) << extra) + swebp__vp8l_bitread_read(br, extra);
+	return ((2 + (c & 1)) << extra) + swebp__vp8l_bitread_read(br, (int) extra);
 }
 
 static simplewebp_error swebp__decode_vp8l_image(
@@ -4664,6 +4614,13 @@ static simplewebp_error swebp__decode_vp8l_image(
 	size_t group_count, entropy_stride, i;
 	simplewebp_error err;
 
+	color_cache = NULL;
+	group_count = 1;
+	entropy_bits = 0;
+	entropy_stride = 0;
+	entropy = NULL;
+	err = SIMPLEWEBP_NO_ERROR;
+
 	if (*dest == NULL)
 	{
 		*dest = (struct swebp__pixel *) swebp__alloc(simplewebp, width * height * 4);
@@ -4677,16 +4634,10 @@ static simplewebp_error swebp__decode_vp8l_image(
 		return SIMPLEWEBP_IO_ERROR;
 	if (ccache_bits)
 	{
-		color_cache = swebp__alloc(simplewebp, (1 << ccache_bits) * 4);
+		color_cache = (struct swebp__pixel*) swebp__alloc(simplewebp, (1 << ccache_bits) * 4);
 		if (!color_cache)
 			return SIMPLEWEBP_ALLOC_ERROR;
 	}
-
-	group_count = 1;
-	entropy_bits = 0;
-	entropy_stride = 0;
-	entropy = NULL;
-	err = SIMPLEWEBP_NO_ERROR;
 
 	if (is_main)
 	{
@@ -4699,6 +4650,7 @@ static simplewebp_error swebp__decode_vp8l_image(
 			block_mask = (1 << entropy_bits) - 1;
 			ew = (width + block_mask) >> entropy_bits;
 			eh = (height + block_mask) >> entropy_bits;
+			ep = NULL;
 			entropy_stride = ew;
 
 			err = swebp__decode_vp8l_image(simplewebp, br, 0, ew, eh, &ep);
@@ -4727,7 +4679,7 @@ static simplewebp_error swebp__decode_vp8l_image(
 		}
 	}
 
-	groups = swebp__alloc(simplewebp, sizeof(struct swebp__vp8l_group) * group_count);
+	groups = (struct swebp__vp8l_group*) swebp__alloc(simplewebp, sizeof(struct swebp__vp8l_group) * group_count);
 	if (!groups)
 	{
 		swebp__dealloc(simplewebp, entropy);
@@ -4782,8 +4734,9 @@ static simplewebp_error swebp__decode_vp8l_image(
 			}
 			else if (codeword < swebp__vp8l_litlen_count)
 			{
-				size_t length, distcode, distance;
+				size_t length, distance;
 				ptrdiff_t offset;
+				simplewebp_u16 distcode;
 
 				length = swebp__vp8l_lendst(br, codeword - swebp__vp8l_literals_count);
 				distcode = swebp__vp8l_read_code(br, &g->code[4]);
@@ -4797,17 +4750,22 @@ static simplewebp_error swebp__decode_vp8l_image(
 
 				for (j = 0; j <= length; j++)
 				{
-					pixel[i] = pixel[-offset];
-					swebp__vp8l_put_cache(ccache_bits, color_cache, pixel[i++]);
+					*pixel = pixel[-offset];
+					swebp__vp8l_put_cache(ccache_bits, color_cache, *pixel);
+					i++;
+					pixel++;
 				}
 			}
 			else
-				pixel[i++] = color_cache[codeword - swebp__vp8l_litlen_count];
+			{
+				*pixel = color_cache[codeword - swebp__vp8l_litlen_count];
+				i++;
+			}
 		}
 	}
 
 	/* Loop free memory */
-	for (; i != (size_t) -1; i--)
+	for (i = 0; i < group_count; i++)
 	{
 		/* And the tree */
 		for (size_t j = 0; j < 5; j++)
@@ -4872,10 +4830,9 @@ static simplewebp_error swebp__decode_color_index_transform(
 	struct swebp__pixel **dest
 )
 {
-	simplewebp_u32 color_count;
+	simplewebp_u32 color_count, i;
 	simplewebp_error err;
 	struct swebp__pixel *pixel_data;
-	int i;
 
 	color_count = swebp__vp8l_bitread_read(br, 8);
 	*index_size_out = (simplewebp_u8) color_count++;
@@ -5002,7 +4959,7 @@ static void swebp__apply_predictor_transform(
 )
 {
 	size_t x, y;
-	size_t tiles_per_row = (width + (1 << bits) - 1) >> bits;
+	size_t tiles_per_row = (width + ((size_t) 1 << bits) - 1) >> bits;
 
 	for (y = 0; y < height; y++)
 	{
@@ -5051,7 +5008,7 @@ static void swebp__apply_color_transform(
 )
 {
 	size_t x, y;
-	size_t tiles_per_row = (width + (1 << bits) - 1) >> bits;
+	size_t tiles_per_row = (width + ((size_t) 1 << bits) - 1) >> bits;
 
 	for (y = 0; y < height; y++)
 	{
@@ -5122,12 +5079,13 @@ static void swebp__apply_index_transform(
 static simplewebp_error swebp__decode_lossless_bitstream_main(
 	simplewebp *simplewebp,
 	struct swebp__vp8l_bdec *br,
-	struct swebp__pixel *rgba
+	struct swebp__pixel *rgba,
+	simplewebp_bool skipheader
 )
 {
 	size_t actual_width, actual_height;
 	size_t full_width;
-	simplewebp_u32 width, height, version_num;
+	simplewebp_u32 width, height;
 	simplewebp_u8 filter_list;
 	struct swebp__pixel *filter_data[4];
 	simplewebp_u8 filter_bits[4];
@@ -5135,22 +5093,33 @@ static simplewebp_error swebp__decode_lossless_bitstream_main(
 	int i;
 	simplewebp_error err;
 
-	/* Validate header */
-	if (swebp__vp8l_bitread_read(br, 8) != 0x2F)
-		return SIMPLEWEBP_CORRUPT_ERROR;
-
-	/* Validate dimensions */
 	simplewebp_get_dimensions(simplewebp, &actual_width, &actual_height);
-	full_width = width = swebp__vp8l_bitread_read(br, 14) + 1;
-	height = swebp__vp8l_bitread_read(br, 14) + 1;
-	if (width != actual_width || height != actual_height)
-		return SIMPLEWEBP_CORRUPT_ERROR;
 
-	/* Skip alpha */
-	swebp__vp8l_bitread_read(br, 1);
-	version_num = swebp__vp8l_bitread_read(br, 3);
-	if (version_num != 0)
-		return SIMPLEWEBP_UNSUPPORTED_ERROR;
+	if (!skipheader)
+	{
+		simplewebp_u32 version_num;
+
+		/* Validate header */
+		if (swebp__vp8l_bitread_read(br, 8) != 0x2F)
+			return SIMPLEWEBP_CORRUPT_ERROR;
+
+		/* Validate dimensions */
+		full_width = width = swebp__vp8l_bitread_read(br, 14) + 1;
+		height = swebp__vp8l_bitread_read(br, 14) + 1;
+		if (width != actual_width || height != actual_height)
+			return SIMPLEWEBP_CORRUPT_ERROR;
+
+		/* Skip alpha */
+		swebp__vp8l_bitread_read(br, 1);
+		version_num = swebp__vp8l_bitread_read(br, 3);
+		if (version_num != 0)
+			return SIMPLEWEBP_UNSUPPORTED_ERROR;
+	}
+	else
+	{
+		width = (simplewebp_u32) (full_width = actual_width);
+		height = (simplewebp_u32) actual_height;
+	}
 
 	/* Read transforms */
 	err = SIMPLEWEBP_NO_ERROR;
@@ -5218,7 +5187,7 @@ static simplewebp_error swebp__decode_lossless_bitstream_main(
 		}
 
 		filter_list = (filter_list) << 2 | ttype;
-		filter_bits[ttype] = transform_bits;
+		filter_bits[i] = transform_bits;
 		filter_data[i] = filter_out;
 		filter_active[ttype] = 1;
 	}
@@ -5254,7 +5223,7 @@ static simplewebp_error swebp__decode_lossless_bitstream_main(
 				break;
 			case 3:
 				/* Color Index Transform */
-				width = full_width;
+				width = (simplewebp_u32) full_width;
 				swebp__apply_index_transform(rgba, width, height, filter_bits[i], filter_data[i]);
 				break;
 		}
@@ -5271,7 +5240,8 @@ static simplewebp_error swebp__decode_lossless_bitstream(
 	simplewebp *simplewebp,
 	simplewebp_input *input,
 	size_t bitstreamsize,
-	struct swebp__pixel *rgba
+	struct swebp__pixel *rgba,
+	simplewebp_bool skipheader
 )
 {
 	struct swebp__vp8l_bdec br;
@@ -5288,7 +5258,7 @@ static simplewebp_error swebp__decode_lossless_bitstream(
 	}
 
 	swebp__vp8l_bitread_init(&br, bitstreambuffer, bitstreamsize);
-	err = swebp__decode_lossless_bitstream_main(simplewebp, &br, rgba);
+	err = swebp__decode_lossless_bitstream_main(simplewebp, &br, rgba, skipheader);
 
 	swebp__dealloc(simplewebp, bitstreambuffer);
 	return err;
@@ -5297,11 +5267,14 @@ static simplewebp_error swebp__decode_lossless_bitstream(
 static simplewebp_error swebp__decode_lossless(simplewebp *simplewebp, void *buffer)
 {
 	size_t vp8lsize = swebp__proxy_size(simplewebp->vp8l_input.userdata);
+	if (!swebp__seek(0, &simplewebp->vp8l_input))
+		return SIMPLEWEBP_IO_ERROR;
 	return swebp__decode_lossless_bitstream(
 		simplewebp,
 		&simplewebp->vp8l_input,
 		vp8lsize,
-		(struct swebp__pixel *) buffer
+		(struct swebp__pixel *) buffer,
+		0
 	);
 }
 
