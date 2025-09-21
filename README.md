@@ -10,8 +10,8 @@ SimpleWebP does:
 * Load WebP easily. Loading WebP can be done in 6 lines of code.
 * Try to be compatible across all compilers.
 * Integrate easily on any C/C++ projects.
-* Decode alpha transparency. *
-* Decode lossless WebP. *
+* Decode alpha transparency.
+* Decode lossless WebP.
 * Passes all [`libwebp-test-data`](https://chromium.googlesource.com/webm/libwebp-test-data) test vectors. *
 
 \*: Currently not supported, but is the project goal.
@@ -20,7 +20,7 @@ SimpleWebP does not:
 * Try to be the fastest WebP decoder.
 * Support encoding WebP image.
 * Support partial decoding (cropping and incremental).
-* Support animation (only support decoding first frame).
+* Support animation ~~(only support decoding first frame)~~ (decoding first frame is TODO).
 * Support extracting EXIF/XMP metadata.
 
 Installation
