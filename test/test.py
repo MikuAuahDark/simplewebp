@@ -1,3 +1,4 @@
+import argparse
 import glob
 import io
 import os.path
@@ -106,11 +107,16 @@ def compare_image(webp: str, pam_stdout: bytes):
 
 
 def main():
+    parser = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument("path", type=pathlib.Path, default=SCRIPT_DIR / "data" / "*.webp", nargs="?")
+    parser.add_argument("--full", action="store_true")
+    args = parser.parse_args()
+
     bad = False
     summary: list[tuple[str, bool]] = []
 
     print("----------------------------------------")
-    for path in glob.glob(str(SCRIPT_DIR / "data" / "*.webp")):
+    for path in glob.glob(str(args.path)):
         print(path, end="", flush=True)
         process = subprocess.run([TEST_PROGRAM, path], text=False, capture_output=True)
 
@@ -122,10 +128,14 @@ def main():
                 bad = True
                 summary.append((path, False))
 
-                for err in errors[:5]:
-                    print(err)
-                if len(errors) > 5:
-                    print("(and many more)")
+                if args.full:
+                    for err in errors:
+                        print(err)
+                else:
+                    for err in errors[:5]:
+                        print(err)
+                    if len(errors) > 5:
+                        print("(and many more)")
             else:
                 print(" ✅")
                 summary.append((path, True))
