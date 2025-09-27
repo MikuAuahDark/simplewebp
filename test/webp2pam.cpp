@@ -27,6 +27,7 @@
 #endif
 
 #include <cstdint>
+#include <exception>
 #include <map>
 #include <string>
 #include <vector>
@@ -69,6 +70,13 @@ struct MyAllocator: public simplewebp_allocator
 
 	void *allocMember(size_t size)
 	{
+		if (size == 0)
+		{
+			fprintf(stderr, "Attempt to allocate memory with size of 0 (simplewebp bug)\n");
+			std::terminate();
+			return nullptr;
+		}
+
 		std::vector<uint8_t> *output = new std::vector<uint8_t>(size);
 		uint8_t *data = output->data();
 		fprintf(stderr, "Allocated memory %p size %zu\n", data, size);

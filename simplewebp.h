@@ -13,6 +13,7 @@
 extern "C" {
 #endif
 
+#include <stddef.h>
 #include <stdlib.h>
 #if defined(__cplusplus) || (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901)
 #include <stdint.h>
@@ -4363,7 +4364,7 @@ static simplewebp_error swebp__vp8l_canonical_code(
 
 	for (i = 0; i < 16; i++)
 	{
-		simplewebp_u8 c = (simplewebp_u8) base[i];
+		simplewebp_u16 c = base[i];
 		base[i] = current_base;
 		current_base = (current_base + c) << 1;
 	}
@@ -4469,7 +4470,7 @@ static simplewebp_error swebp__vp8l_decode_code_complex(
 			case 0:
 				lengths[count++] = (simplewebp_u8) s;
 				continue;
-				// fall through
+				/* fall through */
 			case 1:
 			case 2:
 			case 3:
@@ -5070,7 +5071,7 @@ static void swebp__apply_index_transform(
 		for (x = width - 1; x != (size_t) -1; x--)
 		{
 			const struct swebp__pixel *l = rgba + stride * y;
-			simplewebp_u8 i = (l[x >> bits].g >> (x & mod) << rb) & mask;
+			simplewebp_u8 i = (l[x >> bits].g >> ((x & mod) << rb)) & mask;
 			rgba[y * width + x] = i < color_count ? index_data[i] : transparent_black;
 		}
 	}
@@ -5163,7 +5164,7 @@ static simplewebp_error swebp__decode_lossless_bitstream_main(
 					&transform_bits,
 					&filter_out
 				);
-				width >>= transform_bits;
+				width >>= swebp__vp8l_index_reduction(transform_bits);
 				break;
 			default:
 			/* Unreachable */
