@@ -423,13 +423,7 @@ struct swebp__vp8
 	simplewebp_i8 filter_type;
 	struct swebp__finfo fstrengths[4][2];
 
-	struct swebp__alpha *alpha_decoder;
-	const simplewebp_u8 *alpha_data;
-	size_t alpha_data_size;
-	simplewebp_i32 is_alpha_decoded;
-	simplewebp_u8 *alpha_plane_mem, *alpha_plane;
-	const simplewebp_u8 *alpha_prev_line;
-	simplewebp_i32 alpha_dithering;
+	simplewebp_u8 *alpha_plane;
 };
 
 static char swebp__longlong_must_64bit[sizeof(unsigned long long) == 8 ? 1 : -1];
@@ -866,7 +860,6 @@ static simplewebp_error swebp__load_lossless(simplewebp_input *vp8l_input, simpl
 
 	swebp__vp8l_bitread_init(&br, temp + 1, 4);
 
-	/*result->vp8_input = *vp8l_input;*/
 	memset(&result->decoder.vp8l, 0, sizeof(struct swebp__vp8l_decoder));
 	result->decoder.vp8l.width = swebp__vp8l_bitread_read(&br, 14) + 1;
 	result->decoder.vp8l.height = swebp__vp8l_bitread_read(&br, 14) + 1;
@@ -900,6 +893,11 @@ static simplewebp_error swebp__alpha_init(struct swebp__alpha *alpha, simplewebp
 	return SIMPLEWEBP_NO_ERROR;
 }
 
+static simplewebp_i32 swebp__clip(simplewebp_i32 v, simplewebp_i32 m)
+{
+	return (v < 0) ? 0 : ((v > m) ? m : v);
+}
+
 static void swebp__alpha_apply_filters(simplewebp_u8 *ptr, size_t width, size_t height, simplewebp_u8 filter_type)
 {
 	size_t y, x;
@@ -908,35 +906,37 @@ static void swebp__alpha_apply_filters(simplewebp_u8 *ptr, size_t width, size_t 
 		/* No filters to be applied */
 		return;
 
-	for (y = 0; y < width; y++)
+	for (y = 0; y < height; y++)
 	{
-		for (x = 0; x < width; x++)
+		for (x = (y == 0); x < width; x++)
 		{
 			size_t i = y * width + x;
 			simplewebp_u8 predictor = 0;
 
 			switch (filter_type)
 			{
+				case 0:
+				default:
+					/* Should not happen */
+					predictor = 0;
 				case 1:
-					predictor = x == 0 ? 0 : ptr[i - 1];
+					predictor = x == 0 ? ptr[i - width] : ptr[i - 1];
 					break;
 				case 2:
-					predictor = y == 0 ? 0 : ptr[i - width];
+					predictor = y == 0 ? ptr[i - 1] : ptr[i - width];
 					break;
 				case 3:
 				{
 					simplewebp_i16 a, b, c;
 					simplewebp_i16 val;
 
-					a = x == 0 ? 0 : ptr[i - 1];
-					b = y == 0 ? 0 : ptr[i - width];
+					a = x == 0 ? ptr[i - width] : ptr[i - 1];
+					b = y == 0 ? ptr[i - 1] : ptr[i - width];
 					c = (x > 0 && y > 0) ? ptr[i - width - 1] : 0;
 					val = a + b - c;
-					predictor = val < 0 ? 0 : (val > 255 ? 255 : (simplewebp_u8) val);
+					predictor = (simplewebp_u8) swebp__clip(val, 255);
 					break;
 				}
-				default:
-					return;
 			}
 
 			ptr[i] += predictor;
@@ -956,7 +956,6 @@ static simplewebp_error swebp__alpha_decode_simple(simplewebp *simplewebp, simpl
 	if (!swebp__read2(width * height, dst, input))
 		return SIMPLEWEBP_IO_ERROR;
 
-	swebp__alpha_apply_filters(dst, width, height, simplewebp->alpha_decoder.filter_method);
 	return SIMPLEWEBP_NO_ERROR;
 }
 
@@ -1007,20 +1006,25 @@ static simplewebp_error swebp__alpha_decode_lossless(simplewebp *simplewebp, sim
 
 static simplewebp_error swebp__alpha_decode(simplewebp *simplewebp, simplewebp_u8 *dst)
 {
+	size_t width, height;
+	simplewebp_error err = SIMPLEWEBP_NO_ERROR;
+
+	simplewebp_get_dimensions(simplewebp, &width, &height);
+
 	if (simplewebp->alph_input.userdata)
 	{
 		if (simplewebp->alpha_decoder.is_lossless_compressed)
-			return swebp__alpha_decode_lossless(simplewebp, dst);
+			err = swebp__alpha_decode_lossless(simplewebp, dst);
 		else
-			return swebp__alpha_decode_simple(simplewebp, dst);
+			err = swebp__alpha_decode_simple(simplewebp, dst);
+		
+		if (err == SIMPLEWEBP_NO_ERROR)
+			swebp__alpha_apply_filters(dst, width, height, simplewebp->alpha_decoder.filter_method);
 	}
-
-	{
-		size_t width, height;
-		simplewebp_get_dimensions(simplewebp, &width, &height);
+	else
 		memset(dst, 255, width * height);
-		return SIMPLEWEBP_NO_ERROR;
-	}
+
+	return err;
 }
 
 static simplewebp_bool swebp__has_decoder(simplewebp *simplewebp)
@@ -1400,11 +1404,6 @@ static const simplewebp_u16 swebp__actab[128] = {
 	213, 217, 221, 225, 229, 234, 239, 245,
 	249, 254, 259, 264, 269, 274, 279, 284
 };
-
-static simplewebp_i32 swebp__clip(simplewebp_i32 v, simplewebp_i32 m)
-{
-	return (v < 0) ? 0 : ((v > m) ? m : v);
-}
 
 /* RFC 6386 section 13 */
 static const simplewebp_u8 swebp__coeff_update_proba[4][8][3][11] = {
@@ -3391,7 +3390,7 @@ static simplewebp_u8 *swebp__vp8_alloc_memory(struct swebp__vp8 *vp8d, simpleweb
 	mb_data_size = mb_w * sizeof(*vp8d->mb_data);
 	cache_height = (16 + swebp__fextrarows[vp8d->filter_type]) * 3 / 2;
 	cache_size = top_size * cache_height;
-	alpha_size = vp8d->alpha_data ? (vp8d->picture_header.width * vp8d->picture_header.width) : 0;
+	alpha_size = vp8d->picture_header.width * vp8d->picture_header.width;
 
 	needed = intra_pred_mode_size
 		+ top_size
@@ -4951,6 +4950,11 @@ static struct swebp__pixel swebp__apply_predictor(
 	}
 }
 
+static size_t swebp__subsample_size(size_t size, size_t sampling_bits)
+{
+	return (size + (((size_t) 1) << sampling_bits) - 1) >> sampling_bits;
+}
+
 static void swebp__apply_predictor_transform(
 	struct swebp__pixel *rgba,
 	size_t width,
@@ -4960,7 +4964,7 @@ static void swebp__apply_predictor_transform(
 )
 {
 	size_t x, y;
-	size_t tiles_per_row = (width + ((size_t) 1 << bits) - 1) >> bits;
+	size_t tiles_per_row = swebp__subsample_size(width, bits);
 
 	for (y = 0; y < height; y++)
 	{
@@ -5009,7 +5013,7 @@ static void swebp__apply_color_transform(
 )
 {
 	size_t x, y;
-	size_t tiles_per_row = (width + ((size_t) 1 << bits) - 1) >> bits;
+	size_t tiles_per_row = swebp__subsample_size(width, bits);
 
 	for (y = 0; y < height; y++)
 	{
@@ -5061,7 +5065,7 @@ static void swebp__apply_index_transform(
 
 	color_count = ((simplewebp_u32) size) + 1;
 	bits = swebp__vp8l_index_reduction(color_count);
-	stride = width >> bits;
+	stride = swebp__subsample_size(width, bits);
 	mask = (1 << (8 >> bits)) - 1;
 	mod = (1 << bits) - 1;
 	rb = 3 - bits;
@@ -5164,7 +5168,7 @@ static simplewebp_error swebp__decode_lossless_bitstream_main(
 					&transform_bits,
 					&filter_out
 				);
-				width >>= swebp__vp8l_index_reduction(transform_bits);
+				width = (simplewebp_u32) swebp__subsample_size(width, swebp__vp8l_index_reduction(transform_bits + 1));
 				break;
 			default:
 			/* Unreachable */
@@ -5233,7 +5237,7 @@ static simplewebp_error swebp__decode_lossless_bitstream_main(
 	}
 
 	swebp__batch_free(simplewebp, (void **) filter_data, sizeof(simplewebp_u8) * 4);
-	return SIMPLEWEBP_NO_ERROR;
+	return err;
 }
 
 /* Also used to decode alpha channel. */
