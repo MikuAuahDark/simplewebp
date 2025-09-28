@@ -12,13 +12,17 @@ jobs:
       uses: actions/checkout@v5
     - name: Update Dependencies
       run: sudo apt-get update && sudo apt-get install g++
-    - name: Compile Test Example
+    - name: Compile C Example
       working-directory: test
-      run: g++ -std=c++17 webp2pam.cpp
+      run: gcc -o /dev/null webp2pam.c
+    - name: Compile C++ Example
+      working-directory: test
+      run: g++ -std=c++17 -o /dev/null webp2pam.cpp
   test:
     strategy:
       matrix:
         runner: [ubuntu-24.04, ubuntu-24.04-arm]
+      fail-fast: false
     runs-on: ${{ matrix.runner }}
     needs: build
     steps:

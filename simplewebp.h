@@ -24,7 +24,6 @@ typedef uint16_t simplewebp_u16;
 typedef int16_t simplewebp_i16;
 typedef uint32_t simplewebp_u32;
 typedef int32_t simplewebp_i32;
-typedef uint64_t simplewebp_u64;
 
 #ifdef __cplusplus
 typedef bool simplewebp_bool;
@@ -41,7 +40,6 @@ typedef unsigned short simplewebp_u16;
 typedef short simplewebp_i16;
 typedef unsigned int simplewebp_u32;
 typedef int simplewebp_i32;
-typedef unsigned long long simplewebp_u64;
 #endif
 
 #define SIMPLEWEBP_VERSION 20241016
@@ -425,8 +423,6 @@ struct swebp__vp8
 
 	simplewebp_u8 *alpha_plane;
 };
-
-static char swebp__longlong_must_64bit[sizeof(unsigned long long) == 8 ? 1 : -1];
 
 struct swebp__vp8l_bdec
 {
@@ -4767,8 +4763,9 @@ static simplewebp_error swebp__decode_vp8l_image(
 	/* Loop free memory */
 	for (i = 0; i < group_count; i++)
 	{
+		size_t j;
 		/* And the tree */
-		for (size_t j = 0; j < 5; j++)
+		for (j = 0; j < 5; j++)
 			swebp__dealloc(simplewebp, groups[i].code[j].tree);
 	}
 	swebp__dealloc(simplewebp, entropy);
@@ -5287,12 +5284,11 @@ simplewebp_error simplewebp_decode_yuva(simplewebp *simplewebp, void *y_buffer, 
 {
 	if (simplewebp->webp_type == 0)
 	{
-		struct swebp__yuvdst destination = {
-			(simplewebp_u8 *) y_buffer,
-			(simplewebp_u8 *) u_buffer,
-			(simplewebp_u8 *) v_buffer,
-			(simplewebp_u8 *) a_buffer
-		};
+		struct swebp__yuvdst destination;
+		destination.y = (simplewebp_u8*) y_buffer;
+		destination.u = (simplewebp_u8*) u_buffer;
+		destination.v = (simplewebp_u8*) v_buffer;
+		destination.a = (simplewebp_u8*) a_buffer;
 		return swebp__decode_lossy(simplewebp, &destination, settings);
 	}
 
