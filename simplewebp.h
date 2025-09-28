@@ -4270,11 +4270,11 @@ const size_t swebp__vp8l_lencode_lengths = 19;
 const size_t swebp__vp8l_offset_count = 120;
 const size_t swebp__vp8l_max_symbols = swebp__vp8l_litlen_count + 2048;
 
-static const simplewebp_u8 swebp__vp8l_lencode_order[swebp__vp8l_lencode_lengths] = {
+static const simplewebp_u8 swebp__vp8l_lencode_order[19] = {
     17, 18, 0, 1, 2, 3, 4, 5, 16, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
 };
 
-static const simplewebp_i8 swebp__vp8l_offsets[swebp__vp8l_offset_count][2] = {
+static const simplewebp_i8 swebp__vp8l_offsets[120][2] = {
     { 0, 1}, { 1, 0 }, { 1, 1}, {-1, 1}, { 0, 2}, { 2, 0},
     { 1, 2}, {-1, 2 }, { 2, 1}, {-2, 1}, { 2, 2}, {-2, 2},
     { 0, 3}, { 3, 0 }, { 1, 3}, {-1, 3}, { 3, 1}, {-3, 1},
