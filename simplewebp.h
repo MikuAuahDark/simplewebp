@@ -928,7 +928,20 @@ static void swebp__alpha_apply_filters(simplewebp_u8 *ptr, size_t width, size_t 
 
 					a = x == 0 ? ptr[i - width] : ptr[i - 1];
 					b = y == 0 ? ptr[i - 1] : ptr[i - width];
-					c = (x > 0 && y > 0) ? ptr[i - width - 1] : 0;
+					if (x > 0)
+					{
+						if (y > 0)
+							c = ptr[i - width - 1];
+						else
+							c = ptr[i - 1];
+					}
+					else
+					{
+						if (y > 0)
+							c = ptr[i - width];
+						else
+							c = ptr[0];
+					}
 					val = a + b - c;
 					predictor = (simplewebp_u8) swebp__clip(val, 255);
 					break;
