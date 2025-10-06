@@ -431,29 +431,10 @@ struct swebp__vp8l_bdec
 	simplewebp_u8 eos;
 };
 
-struct swebp__rescaler
-{
-	simplewebp_u8* dst;
-	simplewebp_u32 *irow, *frow;
-	simplewebp_i32 num_channels;
-	simplewebp_u32 fx_scale;
-	simplewebp_u32 fy_scale;
-	simplewebp_u32 fxy_scale;
-	simplewebp_i32 y_accum;
-	simplewebp_i32 y_add, y_sub;
-	simplewebp_i32 x_add, x_sub;
-	simplewebp_i32 src_width, src_height;
-	simplewebp_i32 dst_width, dst_height;
-	simplewebp_i32 src_y, dst_y;
-	simplewebp_i32 dst_stride;
-	simplewebp_u8 x_expand, y_expand;
-};
-
 struct swebp__vp8l_decoder
 {
 	simplewebp_u32 width, height;
-
-	struct swebp__rescaler rescaler;
+	simplewebp_bool has_alpha;
 };
 
 union swebp__decoder_list
@@ -864,8 +845,7 @@ static simplewebp_error swebp__load_lossless(simplewebp_input *vp8l_input, simpl
 	memset(&result->decoder.vp8l, 0, sizeof(struct swebp__vp8l_decoder));
 	result->decoder.vp8l.width = swebp__vp8l_bitread_read(&br, 14) + 1;
 	result->decoder.vp8l.height = swebp__vp8l_bitread_read(&br, 14) + 1;
-
-	swebp__vp8l_bitread_read(&br, 1); /* alpha is used */
+	result->decoder.vp8l.has_alpha = swebp__vp8l_bitread_read(&br, 1);
 	if (swebp__vp8l_bitread_read(&br, 3) != 0)
 		return SIMPLEWEBP_UNSUPPORTED_ERROR;
 
@@ -5360,11 +5340,12 @@ simplewebp_error simplewebp_decode_yuva(simplewebp *simplewebp, void *y_buffer, 
 
 simplewebp_error simplewebp_decode(simplewebp *simplewebp, void *buffer, void *settings)
 {
+	simplewebp_error err = SIMPLEWEBP_NO_ERROR;
+
 	if (simplewebp->webp_type == 0)
 	{
 		struct swebp__yuvdst dest;
 		struct swebp__chroma *upscaled;
-		simplewebp_error err;
 		simplewebp_u8 *mem, *orig_mem;
 		size_t needed, yw, yh, uvw, uvh;
 
@@ -5403,10 +5384,30 @@ simplewebp_error simplewebp_decode(simplewebp *simplewebp, void *buffer, void *s
 		/* Convert YUVA to RGBA */
 		swebp__yuva2rgba(dest.y, upscaled, dest.a, yw, yh, (struct swebp__pixel*) buffer);
 		swebp__dealloc(simplewebp, orig_mem);
-		return SIMPLEWEBP_NO_ERROR;
 	}
 	else
-		return swebp__decode_lossless(simplewebp, buffer);
+	{
+		err = swebp__decode_lossless(simplewebp, buffer);
+		if (err != SIMPLEWEBP_NO_ERROR)
+			return err;
+		
+		if (!simplewebp->decoder.vp8l.has_alpha)
+		{
+			size_t i, w, h;
+			struct swebp__pixel *rgba;
+
+			w = simplewebp->decoder.vp8l.width;
+			h = simplewebp->decoder.vp8l.height;
+
+			/* libwebp sets the alpha to 255 if the has_alpha bit is not set. */
+			/* Interestingly, WebPShop as of 0.4.3 doesn't seem to respect that flag (it's always RGBA). */
+			rgba = (struct swebp__pixel*) buffer;
+			for (i = 0; i < w * h; i++)
+				rgba[i].a = 255;
+		}
+	}
+
+	return err;
 }
 
 #ifndef SIMPLEWEBP_DISABLE_STDIO
