@@ -472,6 +472,11 @@ struct swebp__pixel
 	simplewebp_u8 r, g, b, a;
 };
 
+struct swebp__chroma
+{
+	simplewebp_u8 u, v;
+};
+
 struct simplewebp
 {
 	simplewebp_input input, riff_input, vp8_input, vp8l_input, alph_input;
@@ -1238,6 +1243,11 @@ void simplewebp_get_dimensions(simplewebp *simplewebp, size_t *width, size_t *he
 			*height = 0;
 			break;
 	}
+}
+
+simplewebp_bool simplewebp_is_lossless(simplewebp *simplewebp)
+{
+	return simplewebp->webp_type == 1;
 }
 
 static void swebp__bitread_setbuf(struct swebp__bdec *br, simplewebp_u8 *buf, size_t size)
@@ -3768,104 +3778,144 @@ static simplewebp_u8 swebp__yuv2rgb_clip8(simplewebp_i32 v)
 	return ((v & ~16383) == 0) ? ((simplewebp_u8) (v >> 6)) : (v < 0) ? 0 : 255;
 }
 
-static void swebp__yuv2rgb_plain(simplewebp_u8 y, simplewebp_u8 u, simplewebp_u8 v, simplewebp_u8 *rgb)
+static void swebp__yuv2rgb_plain(simplewebp_u8 y, simplewebp_u8 u, simplewebp_u8 v, struct swebp__pixel *rgb)
 {
 	simplewebp_i32 yhi = swebp__multhi(y, 19077);
 
-	rgb[0] = swebp__yuv2rgb_clip8(yhi + swebp__multhi(v, 26149) - 14234);
-	rgb[1] = swebp__yuv2rgb_clip8(yhi - swebp__multhi(u, 6419) - swebp__multhi(v, 13320) + 8708);
-	rgb[2] = swebp__yuv2rgb_clip8(yhi + swebp__multhi(u, 33050) - 17685);
+	rgb->r = swebp__yuv2rgb_clip8(yhi + swebp__multhi(v, 26149) - 14234);
+	rgb->g = swebp__yuv2rgb_clip8(yhi - swebp__multhi(u, 6419) - swebp__multhi(v, 13320) + 8708);
+	rgb->b = swebp__yuv2rgb_clip8(yhi + swebp__multhi(u, 33050) - 17685);
 }
 
-static simplewebp_u8 swebp__do_uv_fancy_upsampling(simplewebp_u8 a, simplewebp_u8 b, simplewebp_u8 c, simplewebp_u8 d, simplewebp_i8 x, simplewebp_i8 y)
+/* r = top-left, g = top-right, b = bottom-left, a = bottom-right */
+static struct swebp__pixel swebp__do_upsample_center(
+	const simplewebp_u8 *vtop,
+	const simplewebp_u8 *vmid,
+	const simplewebp_u8 *vbot,
+	size_t xm1,
+	size_t x,
+	size_t xp1
+)
 {
-	/* X and Y must be 0 or 1*/
 	/*
-	Notes on interpolation:
-	* The interpolation formula is 2x2 upsampling described in libwebp as follows:
-	Say you have UV samples of:
-	  [a b]
-	  [c d]
-	Interpolating the pixels is done using this formula:
-	  ([9a + 3b + 3c + d   3a + 9b + c + 3d] + [8 8]) / 16
-	  ([3a + b + 9c + 3d   a + 3b + 3c + 9d] + [8 8]) / 16
-	"a" and "b" is taken from the row above it (row - 1)
-	"a" and "c" is taken from the column before it (column - 1)
+	Consider these layout:
+	0  1  2  3  4  5
+	y  y  y  y  y  y  0
+	 t1    t2    t3
+	y  y  y  y  y  y  1
+
+	y  y  y  y  y  y  2
+	 u1    u2    u3
+	y  y  y  y  y  y  3
+
+	y  y  y  y  y  y  4
+	 v1    v2    v3
+	y  y  y  y  y  y  5
+
+	t, u, v are the chroma (CbCr/UV).
+
+	We want to place all of them in y, but note that t, u, and v are centered.
+	So (note this is XY order, not YX)
+	y22 = 9 * u2 + 3 * u1 + 3 * t2 + t1
+	y32 = 9 * u2 + 3 * u3 + 3 * t2 + t3
+	y23 = 9 * u2 + 3 * u1 + 3 * v2 + v1
+	y33 = 9 * u2 + 3 * u3 + 3 * v2 + v3
+
+	Now let's generalize it: assume x, y span from 0 to chroma dimensions:
+	y[x * 2 +0, y * 2 +0] = 9 * uv[x, y] + 3 * uv[x-1, y] + 3 * uv[x, y-1] + uv[x-1, y-1]
+	y[x * 2 +1, y * 2 +0] = 9 * uv[x, y] + 3 * uv[x+1, y] + 3 * uv[x, y-1] + uv[x+1, y-1]
+	y[x * 2 +0, y * 2 +1] = 9 * uv[x, y] + 3 * uv[x-1, y] + 3 * uv[x, y+1] + uv[x-1, y+1]
+	y[x * 2 +1, y * 2 +1] = 9 * uv[x, y] + 3 * uv[x+1, y] + 3 * uv[x, y+1] + uv[x+1, y+1]
+
+	For rounding, add + 8 to each, then divide the result by 16, so: (formula_above + 8) / 16
 	*/
 
-	switch (y * 2 + x)
-	{
-		case 0:
-			return (9u*a + 3u*b + 3u*c + d + 8u) / 16u;
-		case 1:
-			return (3u*a + 9u*b + c + 3u*d + 8u) / 16u;
-		case 2:
-			return (3u*a + b + 9u*c + 3u*d + 8u) / 16u;
-		case 3:
-			return (a + 3u*b + 3u*c + 9u*d + 8u) / 16u;
-		default:
-			return 0;
-	}
+	struct swebp__pixel out;
+
+	out.r = (simplewebp_u8) ((9u * vmid[x] + 3u * vmid[xm1] + 3u * vtop[x] + vtop[xm1] + 8u) / 16u);
+	out.g = (simplewebp_u8) ((9u * vmid[x] + 3u * vmid[xp1] + 3u * vtop[x] + vtop[xp1] + 8u) / 16u);
+	out.b = (simplewebp_u8) ((9u * vmid[x] + 3u * vmid[xm1] + 3u * vbot[x] + vbot[xm1] + 8u) / 16u);
+	out.a = (simplewebp_u8) ((9u * vmid[x] + 3u * vmid[xp1] + 3u * vbot[x] + vbot[xp1] + 8u) / 16u);
+	return out;
 }
 
-static simplewebp_u8 swebp__uv_fancy_upsample(simplewebp_u8 *v, size_t left_x, size_t x, size_t top_y, size_t y, size_t w, size_t h, simplewebp_i8 rx, simplewebp_i8 ry)
+/* This is bilinear interpolation with center chroma. */
+/* See https://stackoverflow.com/a/43784809 */
+static void swebp__upsample_chroma(
+	const simplewebp_u8 *u,
+	const simplewebp_u8 *v,
+	struct swebp__chroma *dst,
+	size_t w,
+	size_t h
+)
 {
-	simplewebp_u8 a, b, c, d;
-
-	a = v[top_y * w + left_x];
-	c = v[y * w + left_x];
-	b = v[top_y * w + x];
-	d = v[y * w + x];
-
-	return swebp__do_uv_fancy_upsampling(a, b, c, d, rx, ry);
-}
-
-static void swebp__yuva2rgba(struct swebp__yuvdst *yuva, size_t w, size_t h, simplewebp_u8 *rgba)
-{
-	size_t y, x, uvw, uvh;
-
-	uvw = (w + 1) / 2;
-	uvh = (h + 1) / 2;
+	size_t y, fw;
+	fw = w * 2;
 
 	for (y = 0; y < h; y++)
 	{
-		size_t y_uv;
-		y_uv = (y + 1) / 2;
-		y_uv = y_uv >= uvh ? (y_uv - 1) : y_uv;
+		size_t prev_y, next_y, x;
+		const simplewebp_u8 *uline;
+		const simplewebp_u8 *vline;
+		const simplewebp_u8 *ulineprev;
+		const simplewebp_u8 *vlineprev;
+		const simplewebp_u8 *ulinenext;
+		const simplewebp_u8 *vlinenext;
+
+		prev_y = y == 0 ? 0 : (y - 1);
+		next_y = y == (h - 1) ? y : (y + 1);
+		ulineprev = u + prev_y * w;
+		vlineprev = v + prev_y * w;
+		ulinenext = u + next_y * w;
+		vlinenext = v + next_y * w;
+		uline = u + y * w;
+		vline = v + y * w;
 
 		for (x = 0; x < w; x++)
 		{
-			size_t x_uv;
-			simplewebp_u8 uval, vval;
-			simplewebp_i8 hit_b, hit_c;
+			size_t prev_x, next_x, i00, i10, i01, i11;
+			struct swebp__pixel uvalue, vvalue;
 
-			x_uv = (x + 1) / 2;
-			x_uv = x_uv >= uvw ? (x_uv - 1) : x_uv;
-			hit_b = (x & 1) == 0;
-			hit_c = (y & 1) == 0;
-			uval = swebp__uv_fancy_upsample(
-				yuva->u,
-				x_uv == 0 ? 0 : x_uv - 1,
-				x_uv,
-				y_uv == 0 ? 0 : y_uv - 1,
-				y_uv,
-				uvw,
-				uvh,
-				hit_b, hit_c
-			);
-			vval = swebp__uv_fancy_upsample(
-				yuva->v,
-				x_uv == 0 ? 0 : x_uv - 1,
-				x_uv,
-				y_uv == 0 ? 0 : y_uv - 1,
-				y_uv,
-				uvw,
-				uvh,
-				hit_b, hit_c
-			);
+			prev_x = x == 0 ? x : (x - 1);
+			next_x = x == (w - 1) ? x : (x + 1);
+			uvalue = swebp__do_upsample_center(ulineprev, uline, ulinenext, prev_x, x, next_x);
+			vvalue = swebp__do_upsample_center(vlineprev, vline, vlinenext, prev_x, x, next_x);
+			i00 = (y * 2) * fw + (x * 2);
+			i10 = (y * 2) * fw + (x * 2 + 1);
+			i01 = (y * 2 + 1) * fw + (x * 2);
+			i11 = (y * 2 + 1) * fw + (x * 2 + 1);
 
-			swebp__yuv2rgb_plain(yuva->y[y * w + x], uval, vval, rgba + (y * w + x) * 4);
-			rgba[(y * w + x) * 4 + 3] = yuva->a[y * w + x];
+			dst[i00].u = uvalue.r;
+			dst[i00].v = vvalue.r;
+			dst[i10].u = uvalue.g;
+			dst[i10].v = vvalue.g;
+			dst[i01].u = uvalue.b;
+			dst[i01].v = vvalue.b;
+			dst[i11].u = uvalue.a;
+			dst[i11].v = vvalue.a;
+		}
+	}
+}
+
+static void swebp__yuva2rgba(
+	const simplewebp_u8 *yp,
+	const struct swebp__chroma *uv,
+	const simplewebp_u8 *a,
+	size_t w,
+	size_t h,
+	struct swebp__pixel *rgba
+)
+{
+	size_t y, x, uvw;
+
+	uvw = ((w + 1) / 2) * 2;
+
+	for (y = 0; y < h; y++)
+	{
+		for (x = 0; x < w; x++)
+		{
+			swebp__yuv2rgb_plain(yp[y * w + x], uv[y * uvw + x].u, uv[y * uvw + x].v, &rgba[y * w + x]);
+			rgba[y * w + x].a = a[y * w + x];
 		}
 	}
 }
@@ -4284,30 +4334,30 @@ const size_t swebp__vp8l_offset_count = 120;
 const size_t swebp__vp8l_max_symbols = swebp__vp8l_litlen_count + 2048;
 
 static const simplewebp_u8 swebp__vp8l_lencode_order[19] = {
-    17, 18, 0, 1, 2, 3, 4, 5, 16, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
+	17, 18, 0, 1, 2, 3, 4, 5, 16, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
 };
 
 static const simplewebp_i8 swebp__vp8l_offsets[120][2] = {
-    { 0, 1}, { 1, 0 }, { 1, 1}, {-1, 1}, { 0, 2}, { 2, 0},
-    { 1, 2}, {-1, 2 }, { 2, 1}, {-2, 1}, { 2, 2}, {-2, 2},
-    { 0, 3}, { 3, 0 }, { 1, 3}, {-1, 3}, { 3, 1}, {-3, 1},
-    { 2, 3}, {-2, 3 }, { 3, 2}, {-3, 2}, { 0, 4}, { 4, 0},
-    { 1, 4}, {-1, 4 }, { 4, 1}, {-4, 1}, { 3, 3}, {-3, 3},
-    { 2, 4}, {-2, 4 }, { 4, 2}, {-4, 2}, { 0, 5}, { 3, 4},
-    {-3, 4}, { 4, 3 }, {-4, 3}, { 5, 0}, { 1, 5}, {-1, 5},
-    { 5, 1}, {-5, 1 }, { 2, 5}, {-2, 5}, { 5, 2}, {-5, 2},
-    { 4, 4}, {-4, 4 }, { 3, 5}, {-3, 5}, { 5, 3}, {-5, 3},
-    { 0, 6}, { 6, 0 }, { 1, 6}, {-1, 6}, { 6, 1}, {-6, 1},
-    { 2, 6}, {-2, 6 }, { 6, 2}, {-6, 2}, { 4, 5}, {-4, 5},
-    { 5, 4}, {-5, 4 }, { 3, 6}, {-3, 6}, { 6, 3}, {-6, 3},
-    { 0, 7}, { 7, 0 }, { 1, 7}, {-1, 7}, { 5, 5}, {-5, 5},
-    { 7, 1}, {-7, 1 }, { 4, 6}, {-4, 6}, { 6, 4}, {-6, 4},
-    { 2, 7}, {-2, 7 }, { 7, 2}, {-7, 2}, { 3, 7}, {-3, 7},
-    { 7, 3}, {-7, 3 }, { 5, 6}, {-5, 6}, { 6, 5}, {-6, 5},
-    { 8, 0}, { 4, 7 }, {-4, 7}, { 7, 4}, {-7, 4}, { 8, 1},
-    { 8, 2}, { 6, 6 }, {-6, 6}, { 8, 3}, { 5, 7}, {-5, 7},
-    { 7, 5}, {-7, 5 }, { 8, 4}, { 6, 7}, {-6, 7}, { 7, 6},
-    {-7, 6}, { 8, 5 }, { 7, 7}, {-7, 7}, { 8, 6}, { 8, 7},
+	{ 0, 1}, { 1, 0 }, { 1, 1}, {-1, 1}, { 0, 2}, { 2, 0},
+	{ 1, 2}, {-1, 2 }, { 2, 1}, {-2, 1}, { 2, 2}, {-2, 2},
+	{ 0, 3}, { 3, 0 }, { 1, 3}, {-1, 3}, { 3, 1}, {-3, 1},
+	{ 2, 3}, {-2, 3 }, { 3, 2}, {-3, 2}, { 0, 4}, { 4, 0},
+	{ 1, 4}, {-1, 4 }, { 4, 1}, {-4, 1}, { 3, 3}, {-3, 3},
+	{ 2, 4}, {-2, 4 }, { 4, 2}, {-4, 2}, { 0, 5}, { 3, 4},
+	{-3, 4}, { 4, 3 }, {-4, 3}, { 5, 0}, { 1, 5}, {-1, 5},
+	{ 5, 1}, {-5, 1 }, { 2, 5}, {-2, 5}, { 5, 2}, {-5, 2},
+	{ 4, 4}, {-4, 4 }, { 3, 5}, {-3, 5}, { 5, 3}, {-5, 3},
+	{ 0, 6}, { 6, 0 }, { 1, 6}, {-1, 6}, { 6, 1}, {-6, 1},
+	{ 2, 6}, {-2, 6 }, { 6, 2}, {-6, 2}, { 4, 5}, {-4, 5},
+	{ 5, 4}, {-5, 4 }, { 3, 6}, {-3, 6}, { 6, 3}, {-6, 3},
+	{ 0, 7}, { 7, 0 }, { 1, 7}, {-1, 7}, { 5, 5}, {-5, 5},
+	{ 7, 1}, {-7, 1 }, { 4, 6}, {-4, 6}, { 6, 4}, {-6, 4},
+	{ 2, 7}, {-2, 7 }, { 7, 2}, {-7, 2}, { 3, 7}, {-3, 7},
+	{ 7, 3}, {-7, 3 }, { 5, 6}, {-5, 6}, { 6, 5}, {-6, 5},
+	{ 8, 0}, { 4, 7 }, {-4, 7}, { 7, 4}, {-7, 4}, { 8, 1},
+	{ 8, 2}, { 6, 6 }, {-6, 6}, { 8, 3}, { 5, 7}, {-5, 7},
+	{ 7, 5}, {-7, 5 }, { 8, 4}, { 6, 7}, {-6, 7}, { 7, 6},
+	{-7, 6}, { 8, 5 }, { 7, 7}, {-7, 7}, { 8, 6}, { 8, 7},
 };
 
 static void swebp__vp8l_insert_code(
@@ -4554,11 +4604,11 @@ static simplewebp_error swebp__vp8l_decode_group(
 	size_t i;
 	simplewebp_u16 sizes[] = {
 		(simplewebp_u16) (swebp__vp8l_litlen_count + (bits ? 1 << bits : 0)),
-        swebp__vp8l_literals_count,
 		swebp__vp8l_literals_count,
 		swebp__vp8l_literals_count,
-        swebp__vp8l_distances_count,
-    };
+		swebp__vp8l_literals_count,
+		swebp__vp8l_distances_count,
+	};
 
 	for (i = 0; i < 5; i++)
 	{
@@ -4988,9 +5038,9 @@ static void swebp__apply_predictor_transform(
 				if (y > 0)
 				{
 					size_t tile_x = x >> bits;
-                    size_t tile_y = y >> bits;
-                    size_t tile_index = tile_y * tiles_per_row + tile_x;
-                    type = predictor_data[tile_index].g;
+					size_t tile_y = y >> bits;
+					size_t tile_index = tile_y * tiles_per_row + tile_x;
+					type = predictor_data[tile_index].g;
 				}
 				else
 					type = 1;
@@ -5009,9 +5059,9 @@ static void swebp__apply_predictor_transform(
 }
 
 static simplewebp_u8 swebp__color_delta(int c1, int c2) {
-    int sc1 = c1 >= 128 ? -256 + c1 : c1;
-    int sc2 = c2 >= 128 ? -256 + c2 : c2;
-    return (simplewebp_u8) ((sc1 * sc2) >> 5);
+	int sc1 = c1 >= 128 ? -256 + c1 : c1;
+	int sc2 = c2 >= 128 ? -256 + c2 : c2;
+	return (simplewebp_u8) ((sc1 * sc2) >> 5);
 }
 
 static void swebp__apply_color_transform(
@@ -5313,6 +5363,7 @@ simplewebp_error simplewebp_decode(simplewebp *simplewebp, void *buffer, void *s
 	if (simplewebp->webp_type == 0)
 	{
 		struct swebp__yuvdst dest;
+		struct swebp__chroma *upscaled;
 		simplewebp_error err;
 		simplewebp_u8 *mem, *orig_mem;
 		size_t needed, yw, yh, uvw, uvh;
@@ -5323,6 +5374,8 @@ simplewebp_error simplewebp_decode(simplewebp *simplewebp, void *buffer, void *s
 		uvw = (yw + 1) / 2;
 		uvh = (yh + 1) / 2;
 		needed = ((yw * yh) + (uvw * uvh)) * 2;
+		/* For upsampling the UV */
+		needed += uvw * uvh * 4 * sizeof(struct swebp__chroma);
 
 		mem = orig_mem = (simplewebp_u8 *) swebp__alloc(simplewebp, needed);
 		if (mem == NULL)
@@ -5335,6 +5388,8 @@ simplewebp_error simplewebp_decode(simplewebp *simplewebp, void *buffer, void *s
 		dest.u = mem;
 		mem += uvw * uvh;
 		dest.v = mem;
+		mem += uvw * uvh;
+		upscaled = (struct swebp__chroma*) mem;
 
 		err = swebp__decode_lossy(simplewebp, &dest, settings);
 		if (err != SIMPLEWEBP_NO_ERROR)
@@ -5343,7 +5398,10 @@ simplewebp_error simplewebp_decode(simplewebp *simplewebp, void *buffer, void *s
 			return err;
 		}
 
-		swebp__yuva2rgba(&dest, yw, yh, (simplewebp_u8 *) buffer);
+		/* Upsample UV */
+		swebp__upsample_chroma(dest.u, dest.v, upscaled, uvw, uvh);
+		/* Convert YUVA to RGBA */
+		swebp__yuva2rgba(dest.y, upscaled, dest.a, yw, yh, (struct swebp__pixel*) buffer);
 		swebp__dealloc(simplewebp, orig_mem);
 		return SIMPLEWEBP_NO_ERROR;
 	}
