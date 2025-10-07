@@ -2,7 +2,7 @@
  * @file simplewebp.h
  * @author Google Inc., Miku AuahDark
  * @brief A simple WebP decoder.
- * @version 20241016
+ * @version 20251007
  * See license at the bottom of the file.
  */
 
@@ -42,7 +42,7 @@ typedef unsigned int simplewebp_u32;
 typedef int simplewebp_i32;
 #endif
 
-#define SIMPLEWEBP_VERSION 20241016
+#define SIMPLEWEBP_VERSION 20251007
 
 /**
  * @brief SimpleWebP "input stream".
@@ -5477,6 +5477,7 @@ simplewebp_error simplewebp_load_from_filename(const char *filename, const simpl
 
 /**
  * This software is available under BSD-3-Clause License
+ * Some parts of WebP Lossless code is taken from "whale" project by Matej Fencl
  * 
  * Copyright (c) 2010 Google Inc., 2023 Miku AuahDark
  * All rights reserved.
