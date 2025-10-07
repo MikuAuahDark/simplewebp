@@ -7,14 +7,12 @@ Features
 -----
 
 SimpleWebP does:
-* Load WebP easily. Loading WebP can be done in 6 lines of code.
+* Load WebP easily. Loading WebP can be done in 7 lines of code.
 * Try to be compatible across all compilers.
 * Integrate easily on any C/C++ projects.
 * Decode alpha transparency.
 * Decode lossless WebP.
-* Passes all [`libwebp-test-data`](https://chromium.googlesource.com/webm/libwebp-test-data) test vectors. *
-
-\*: Currently not supported, but is the project goal.
+* Passes all [`libwebp-test-data`](https://chromium.googlesource.com/webm/libwebp-test-data) test vectors.
 
 SimpleWebP does not:
 * Try to be the fastest WebP decoder.
@@ -36,7 +34,7 @@ A CMake project is also provided for convenience. You're not required to use it.
 Quick Example
 -----
 
-The "Feature" sections says 6 lines of code right?
+The "Feature" sections says 7 lines of code right?
 
 ```c
 size_t width, height;
@@ -45,5 +43,6 @@ simplewebp_load_from_filename("image.webp", NULL, &swebp);
 simplewebp_get_dimensions(swebp, &width, &height);
 unsigned char *imageBuffer = malloc(width * height * 4);
 simplewebp_decode(swebp, imageBuffer, NULL);
+simplewebp_unload(swebp); /* Frees the simplewebp instance */
 /* `imageBuffer`` now contains decoded RGBA data of the WebP image */
 ```
