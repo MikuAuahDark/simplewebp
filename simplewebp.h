@@ -1676,10 +1676,6 @@ static const simplewebp_u8 swebp__coeff_proba0[4][8][3][11] = {
 	}
 };
 
-static const simplewebp_u8 swebp__kbands[16 + 1] = {
-	0, 1, 2, 3, 6, 4, 5, 6, 6, 6, 6, 6, 6, 6, 6, 7, 0
-};
-
 static const simplewebp_u8 swebp__fextrarows[3] = {0, 2, 8};
 
 static simplewebp_u8 *swebp__align32(simplewebp_u8 *ptr)
@@ -2974,19 +2970,6 @@ static const simplewebp_u8 swebp__modes_proba[10][10][9] = {
 		{ 138, 45, 61, 62, 219, 1, 81, 188, 64 },
 		{ 32, 41, 20, 117, 151, 142, 20, 21, 163 },
 		{ 112, 19, 12, 61, 195, 128, 48, 4, 24 } }
-};
-
-static const simplewebp_u32 swebp__random_table[55] = {
-	0x0de15230, 0x03b31886, 0x775faccb, 0x1c88626a, 0x68385c55, 0x14b3b828,
-	0x4a85fef8, 0x49ddb84b, 0x64fcf397, 0x5c550289, 0x4a290000, 0x0d7ec1da,
-	0x5940b7ab, 0x5492577d, 0x4e19ca72, 0x38d38c69, 0x0c01ee65, 0x32a1755f,
-	0x5437f652, 0x5abb2c32, 0x0faa57b1, 0x73f533e7, 0x685feeda, 0x7563cce2,
-	0x6e990e83, 0x4730a7ed, 0x4fc0d9c6, 0x496b153c, 0x4f1403fa, 0x541afb0c,
-	0x73990b32, 0x26d7cb1c, 0x6fcc3706, 0x2cbb77d8, 0x75762f2a, 0x6425ccdd,
-	0x24b35461, 0x0a7d8715, 0x220414a8, 0x141ebf67, 0x56b41583, 0x73e502e3,
-	0x44cab16f, 0x28264d42, 0x73baaefb, 0x0a50ebed, 0x1d6ab6fb, 0x0d3ad40b,
-	0x35db3b68, 0x2b081e83, 0x77ce6b95, 0x5181e5f0, 0x78853bbc, 0x009f9494,
-	0x27e5ed3c
 };
 
 static const simplewebp_u8 swebp__bands[17] = {
@@ -4313,12 +4296,9 @@ struct swebp__vp8l_group
 };
 
 const simplewebp_u16 swebp__vp8l_literals_count = 256;
-const simplewebp_u16 swebp__vp8l_lengths_count = 24;
 const simplewebp_u16 swebp__vp8l_distances_count = 40;
-const simplewebp_u16 swebp__vp8l_litlen_count = swebp__vp8l_literals_count + swebp__vp8l_lengths_count;
-const size_t swebp__vp8l_lencode_lengths = 19;
+const simplewebp_u16 swebp__vp8l_litlen_count = 256 + 24;
 const size_t swebp__vp8l_offset_count = 120;
-const size_t swebp__vp8l_max_symbols = swebp__vp8l_litlen_count + 2048;
 
 static const simplewebp_u8 swebp__vp8l_lencode_order[19] = {
 	17, 18, 0, 1, 2, 3, 4, 5, 16, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15,
@@ -4470,15 +4450,15 @@ static simplewebp_error swebp__vp8l_decode_code_complex(
 )
 {
 	size_t i;
-	simplewebp_u8 lencode_lengths[swebp__vp8l_lencode_lengths], lencode_read;
-	simplewebp_u8 lengths[swebp__vp8l_max_symbols];
+	simplewebp_u8 lencode_lengths[19], lencode_read;
+	simplewebp_u8 lengths[256 + 24 + 2048];
 	simplewebp_u16 limit, count, p;
 	simplewebp_error err;
-	struct swebp__vp8l_code_node lencode_treemem[swebp__vp8l_lencode_lengths - 1];
+	struct swebp__vp8l_code_node lencode_treemem[18];
 	struct swebp__vp8l_code lc;
 
 	lencode_read = (simplewebp_u8) swebp__vp8l_bitread_read(br, 4) + 4;
-	for (i = 0; i < swebp__vp8l_lencode_lengths; i++)
+	for (i = 0; i < 19; i++)
 		lencode_lengths[swebp__vp8l_lencode_order[i]] = i < lencode_read ? swebp__vp8l_bitread_read(br, 3) : 0;
 
 	if (swebp__vp8l_bitread_read(br, 1))
@@ -4489,7 +4469,7 @@ static simplewebp_error swebp__vp8l_decode_code_complex(
 	if (br->eos)
 		return SIMPLEWEBP_IO_ERROR;
 
-	err = swebp__vp8l_canonical_code(simplewebp, lencode_lengths, swebp__vp8l_lencode_lengths, &lc, lencode_treemem);
+	err = swebp__vp8l_canonical_code(simplewebp, lencode_lengths, 19, &lc, lencode_treemem);
 	if (err != SIMPLEWEBP_NO_ERROR)
 		return err;
 
@@ -4589,13 +4569,10 @@ static simplewebp_error swebp__vp8l_decode_group(
 )
 {
 	size_t i;
-	simplewebp_u16 sizes[] = {
-		(simplewebp_u16) (swebp__vp8l_litlen_count + (bits ? 1 << bits : 0)),
-		swebp__vp8l_literals_count,
-		swebp__vp8l_literals_count,
-		swebp__vp8l_literals_count,
-		swebp__vp8l_distances_count,
-	};
+	simplewebp_u16 sizes[5];
+	sizes[0] = swebp__vp8l_litlen_count + (bits ? 1 << bits : 0);
+	sizes[1] = sizes[2] = sizes[3] = swebp__vp8l_literals_count;
+	sizes[4] = swebp__vp8l_distances_count;
 
 	for (i = 0; i < 5; i++)
 	{
@@ -4906,12 +4883,11 @@ static simplewebp_error swebp__decode_color_index_transform(
 
 static struct swebp__pixel swebp__average2(struct swebp__pixel a, struct swebp__pixel b)
 {
-	struct swebp__pixel result = {
-		(simplewebp_u8) (((simplewebp_u16) a.r + (simplewebp_u16) b.r) / 2),
-		(simplewebp_u8) (((simplewebp_u16) a.g + (simplewebp_u16) b.g) / 2),
-		(simplewebp_u8) (((simplewebp_u16) a.b + (simplewebp_u16) b.b) / 2),
-		(simplewebp_u8) (((simplewebp_u16) a.a + (simplewebp_u16) b.a) / 2)
-	};
+	struct swebp__pixel result;
+	result.r = ((simplewebp_u16) a.r + (simplewebp_u16) b.r) / 2;
+	result.g = ((simplewebp_u16) a.g + (simplewebp_u16) b.g) / 2;
+	result.b = ((simplewebp_u16) a.b + (simplewebp_u16) b.b) / 2;
+	result.a = ((simplewebp_u16) a.a + (simplewebp_u16) b.a) / 2;
 	return result;
 }
 
@@ -4933,23 +4909,21 @@ static struct swebp__pixel swebp__clamp_add_subtract_full(
 	struct swebp__pixel c
 )
 {
-	struct swebp__pixel result = {
-		(simplewebp_u8) swebp__clip((int) a.r + (int) b.r - (int) c.r, 255),
-		(simplewebp_u8) swebp__clip((int) a.g + (int) b.g - (int) c.g, 255),
-		(simplewebp_u8) swebp__clip((int) a.b + (int) b.b - (int) c.b, 255),
-		(simplewebp_u8) swebp__clip((int) a.a + (int) b.a - (int) c.a, 255),
-	};
+	struct swebp__pixel result;
+	result.r = swebp__clip((int) a.r + (int) b.r - (int) c.r, 255);
+	result.g = swebp__clip((int) a.g + (int) b.g - (int) c.g, 255);
+	result.b = swebp__clip((int) a.b + (int) b.b - (int) c.b, 255);
+	result.a = swebp__clip((int) a.a + (int) b.a - (int) c.a, 255);
 	return result;
 }
 
 static struct swebp__pixel swebp__clamp_add_subtract_half(struct swebp__pixel a, struct swebp__pixel b)
 {
-	struct swebp__pixel result = {
-		(simplewebp_u8) swebp__clip((int) a.r + ((int) a.r - (int) b.r) / 2, 255),
-		(simplewebp_u8) swebp__clip((int) a.g + ((int) a.g - (int) b.g) / 2, 255),
-		(simplewebp_u8) swebp__clip((int) a.b + ((int) a.b - (int) b.b) / 2, 255),
-		(simplewebp_u8) swebp__clip((int) a.a + ((int) a.a - (int) b.a) / 2, 255),
-	};
+	struct swebp__pixel result;
+	result.r = swebp__clip((int) a.r + ((int) a.r - (int) b.r) / 2, 255);
+	result.g = swebp__clip((int) a.g + ((int) a.g - (int) b.g) / 2, 255);
+	result.b = swebp__clip((int) a.b + ((int) a.b - (int) b.b) / 2, 255);
+	result.a = swebp__clip((int) a.a + ((int) a.a - (int) b.a) / 2, 255);
 	return result;
 }
 
