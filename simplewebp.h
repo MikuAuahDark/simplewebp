@@ -1345,7 +1345,7 @@ static simplewebp_i32 swebp__bitread_getvalsigned(struct swebp__bdec *br, simple
 	return swebp__bitread_getval(br, 1) ? -value : value;
 }
 
-static simplewebp_i32 swebp__bitread_getsigned(struct swebp__bdec *br, simplewebp_u8 v)
+static simplewebp_i32 swebp__bitread_getsigned(struct swebp__bdec *br, simplewebp_i32 v)
 {
 	simplewebp_i8 pos;
 	simplewebp_u32 split, value;
@@ -3079,7 +3079,7 @@ static simplewebp_error swebp__load_vp8_header(struct swebp__vp8 *vp8d, simplewe
 			for (i = 0; i < 4; i++)
 			{
 				if (swebp__bitread_getval(&br, 1))
-					filt_hdr->ref_lf_delta[i] = swebp__bitread_getvalsigned(&br, 6);
+					filt_hdr->mode_lf_delta[i] = swebp__bitread_getvalsigned(&br, 6);
 			}
 		}
 	}
@@ -3511,7 +3511,14 @@ static simplewebp_i32 swebp__get_large_value(struct swebp__bdec *br, const simpl
 	return v;
 }
 
-static simplewebp_i32 swebp__get_coeffs(struct swebp__bdec *br, const struct swebp__bandprobas *prob[], simplewebp_i32 ctx, const swebp__quant_t dq, simplewebp_i32 n, simplewebp_i16 *out)
+static simplewebp_i32 swebp__get_coeffs(
+	struct swebp__bdec *br,
+	const struct swebp__bandprobas *prob[],
+	simplewebp_i32 ctx,
+	const swebp__quant_t dq,
+	simplewebp_i32 n,
+	simplewebp_i16 *out
+)
 {
 	const simplewebp_u8 *p = prob[n]->probas[ctx];
 
@@ -4197,7 +4204,7 @@ static simplewebp_error swebp__vp8_parse_frame(struct swebp__vp8 *vp8d, struct s
 		if (!swebp__vp8_parse_intra_row(vp8d))
 			return SIMPLEWEBP_CORRUPT_ERROR;
 
-		for (; vp8d->mb_x < vp8d->mb_w; vp8d->mb_x++)
+		for (vp8d->mb_x = 0; vp8d->mb_x < vp8d->mb_w; vp8d->mb_x++)
 		{
 			if (!swebp__vp8_decode_macroblock(vp8d, token_br))
 				return SIMPLEWEBP_CORRUPT_ERROR;
