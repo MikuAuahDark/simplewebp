@@ -1143,7 +1143,7 @@ simplewebp_error simplewebp_load(simplewebp_input *input, const simplewebp_alloc
 			/* Input unused. */
 			simplewebp_close_input(&chunk_input_proxy);
 
-		if (!swebp__seek(current_position + (chunk_size + 1) & (~((size_t) 1)), &result->riff_input))
+		if (!swebp__seek(current_position + ((chunk_size + 1) & (~((size_t) 1))), &result->riff_input))
 		{
 			err = SIMPLEWEBP_IO_ERROR;
 			break;
