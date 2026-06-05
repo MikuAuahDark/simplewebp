@@ -4748,7 +4748,7 @@ static simplewebp_error swebp__decode_vp8l_image(
 
 			if (codeword < swebp__vp8l_literals_count)
 			{
-				struct swebp__pixel color = {0};
+				struct swebp__pixel color = {0, 0, 0, 0};
 				color.r = (simplewebp_u8) swebp__vp8l_read_code(br, &g->code[1]);
 				color.g = (simplewebp_u8) codeword;
 				color.b = (simplewebp_u8) swebp__vp8l_read_code(br, &g->code[2]);
@@ -5087,7 +5087,7 @@ static void swebp__apply_index_transform(
 	simplewebp_u32 color_count;
 	simplewebp_u8 bits, mask, mod, rb;
 	size_t stride;
-	const struct swebp__pixel transparent_black = {0};
+	const struct swebp__pixel transparent_black = {0, 0, 0, 0};
 
 	color_count = ((simplewebp_u32) size) + 1;
 	bits = swebp__vp8l_index_reduction(color_count);
