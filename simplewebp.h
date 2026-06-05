@@ -5121,7 +5121,7 @@ static simplewebp_error swebp__decode_lossless_bitstream_main(
 	struct swebp__pixel *filter_data[4];
 	simplewebp_u8 filter_bits[4];
 	simplewebp_bool filter_active[4];
-	int i;
+	size_t i;
 	simplewebp_error err;
 
 	simplewebp_get_dimensions(simplewebp, &actual_width, &actual_height);
@@ -5232,34 +5232,36 @@ static simplewebp_error swebp__decode_lossless_bitstream_main(
 	}
 
 	/* Apply transform */
-	i--;
-	for (; i >= 0; i--)
 	{
-		simplewebp_u8 ttype;
-		ttype = filter_list & 3;
-
-		switch (ttype)
+		int j = (int)(i - 1);
+		for (; j >= 0; j--)
 		{
-			case 0:
-				/* Predictor Transform */
-				swebp__apply_predictor_transform(rgba, width, height, filter_bits[i], filter_data[i]);
-				break;
-			case 1:
-				/* Color Transform */
-				swebp__apply_color_transform(rgba, width, height, filter_bits[i], filter_data[i]);
-				break;
-			case 2:
-				/* Green Transform */
-				swebp__apply_green_sub_transform(rgba, width, height);
-				break;
-			case 3:
-				/* Color Index Transform */
-				width = (simplewebp_u32) full_width;
-				swebp__apply_index_transform(rgba, width, height, filter_bits[i], filter_data[i]);
-				break;
-		}
+			simplewebp_u8 ttype;
+			ttype = filter_list & 3;
 
-		filter_list >>= 2;
+			switch (ttype)
+			{
+				case 0:
+					/* Predictor Transform */
+					swebp__apply_predictor_transform(rgba, width, height, filter_bits[j], filter_data[j]);
+					break;
+				case 1:
+					/* Color Transform */
+					swebp__apply_color_transform(rgba, width, height, filter_bits[j], filter_data[j]);
+					break;
+				case 2:
+					/* Green Transform */
+					swebp__apply_green_sub_transform(rgba, width, height);
+					break;
+				case 3:
+					/* Color Index Transform */
+					width = (simplewebp_u32) full_width;
+					swebp__apply_index_transform(rgba, width, height, filter_bits[j], filter_data[j]);
+					break;
+			}
+
+			filter_list >>= 2;
+		}
 	}
 
 	swebp__batch_free(simplewebp, (void **) filter_data, sizeof(simplewebp_u8) * 4);
