@@ -4370,6 +4370,7 @@ static simplewebp_error swebp__vp8l_canonical_code(
 )
 {
 	simplewebp_u16 base[16], real_size, current_base, root, used;
+	simplewebp_u16 symbol_count, single_symbol;
 	struct swebp__vp8l_code_node *tree;
 	size_t i;
 
@@ -4379,6 +4380,8 @@ static simplewebp_error swebp__vp8l_canonical_code(
 	root = 0;
 	used = size;
 	tree = NULL;
+	symbol_count = 0;
+	single_symbol = 0;
 
 	for (i = 0; i < size; i++)
 	{
@@ -4386,10 +4389,11 @@ static simplewebp_error swebp__vp8l_canonical_code(
 		if (length > 0)
 		{
 			base[length - 1]++;
-			real_size++;
+			real_size += length;
+			symbol_count++;
+			single_symbol = (simplewebp_u16) i;
 		}
 	}
-	real_size--;
 
 	for (i = 0; i < 16; i++)
 	{
@@ -4425,6 +4429,10 @@ static simplewebp_error swebp__vp8l_canonical_code(
 
 	code->size = size;
 	code->tree = tree;
+
+	if (symbol_count == 1)
+		root = single_symbol;
+
 	code->symbol[0] = root & 0xFF;
 	code->symbol[1] = (root >> 8) & 0xFF;
 
@@ -4458,7 +4466,7 @@ static simplewebp_error swebp__vp8l_decode_code_complex(
 	simplewebp_u8 lengths[256 + 24 + 2048];
 	simplewebp_u16 limit, count, p;
 	simplewebp_error err;
-	struct swebp__vp8l_code_node lencode_treemem[18];
+	struct swebp__vp8l_code_node lencode_treemem[19 * 7];
 	struct swebp__vp8l_code lc;
 
 	lencode_read = (simplewebp_u8) swebp__vp8l_bitread_read(br, 4) + 4;
