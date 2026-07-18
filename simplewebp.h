@@ -4395,6 +4395,24 @@ static simplewebp_error swebp__vp8l_canonical_code(
 		}
 	}
 
+	if (symbol_count == 0)
+		return SIMPLEWEBP_CORRUPT_ERROR;
+	else if (symbol_count > 1)
+	{
+		int open_slots = 1;
+
+		/* Max allowed code length is 15 */
+		for (i = 0; i < 15; i++)
+		{
+			open_slots = (open_slots << 1) - base[i];
+			if (open_slots < 0)
+				return SIMPLEWEBP_CORRUPT_ERROR;
+		}
+
+		if (open_slots != 0)
+			return SIMPLEWEBP_CORRUPT_ERROR;
+	}
+
 	for (i = 0; i < 16; i++)
 	{
 		simplewebp_u16 c = base[i];
