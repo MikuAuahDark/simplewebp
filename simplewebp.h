@@ -4651,9 +4651,10 @@ static simplewebp_error swebp__decode_vp8l_image(
 	simplewebp_u8 ccache_bits, entropy_bits;
 	struct swebp__pixel *color_cache, *entropy, *image;
 	struct swebp__vp8l_group *groups;
-	size_t group_count, entropy_stride, i;
+	size_t group_count, entropy_stride, i, dimensions;
 	simplewebp_error err;
 
+	dimensions = width * height;
 	color_cache = NULL;
 	group_count = 1;
 	entropy_bits = 0;
@@ -4742,7 +4743,7 @@ static simplewebp_error swebp__decode_vp8l_image(
 	if (err == SIMPLEWEBP_NO_ERROR)
 	{
 		/* Main image decoding routines. */
-		for (i = 0; i < width * height;)
+		for (i = 0; i < dimensions;)
 		{
 			struct swebp__pixel *pixel;
 			struct swebp__vp8l_group *g = groups;
@@ -4763,6 +4764,11 @@ static simplewebp_error swebp__decode_vp8l_image(
 			}
 
 			codeword = swebp__vp8l_read_code(br, &g->code[0]);
+			if (br->eos)
+			{
+				err = SIMPLEWEBP_IO_ERROR;
+				break;
+			}
 
 			if (codeword < swebp__vp8l_literals_count)
 			{
@@ -4771,6 +4777,12 @@ static simplewebp_error swebp__decode_vp8l_image(
 				color.g = (simplewebp_u8) codeword;
 				color.b = (simplewebp_u8) swebp__vp8l_read_code(br, &g->code[2]);
 				color.a = (simplewebp_u8) swebp__vp8l_read_code(br, &g->code[3]);
+				if (br->eos)
+				{
+					err = SIMPLEWEBP_IO_ERROR;
+					break;
+				}
+
 				*pixel = color;
 				i++;
 
@@ -4786,17 +4798,17 @@ static simplewebp_error swebp__decode_vp8l_image(
 				distcode = swebp__vp8l_read_code(br, &g->code[4]);
 				distance = swebp__vp8l_lendst(br, distcode);
 
-				if (br->eos)
-				{
-					err = SIMPLEWEBP_IO_ERROR;
-					break;
-				}
-
 				if (distance < swebp__vp8l_offset_count)
 					offset = swebp__vp8l_offsets[distance][0] + swebp__vp8l_offsets[distance][1] * width;
 				else
 					offset = distance - swebp__vp8l_offset_count + 1;
 				offset = offset < 1 ? 1 : offset;
+
+				if ((size_t) offset > i || (length + 1) > (dimensions - i))
+				{
+					err = SIMPLEWEBP_CORRUPT_ERROR;
+					break;
+				}
 
 				for (j = 0; j <= length; j++)
 				{
