@@ -1,8 +1,8 @@
 /**
  * @file simplewebp.h
- * @author Google Inc., Miku AuahDark
+ * @author Google Inc., Miku AuahDark, and contributors
  * @brief A simple WebP decoder.
- * @version 20251007
+ * @version 20260718
  * See license at the bottom of the file.
  */
 
@@ -42,7 +42,7 @@ typedef unsigned int simplewebp_u32;
 typedef int simplewebp_i32;
 #endif
 
-#define SIMPLEWEBP_VERSION 20251007
+#define SIMPLEWEBP_VERSION 20260718
 
 /**
  * @brief SimpleWebP "input stream".
