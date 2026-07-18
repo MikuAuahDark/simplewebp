@@ -4480,6 +4480,8 @@ static simplewebp_error swebp__vp8l_decode_code_complex(
 	
 	if (br->eos)
 		return SIMPLEWEBP_IO_ERROR;
+	if (limit > size)
+		return SIMPLEWEBP_CORRUPT_ERROR;
 
 	err = swebp__vp8l_canonical_code(simplewebp, lencode_lengths, 19, &lc, lencode_treemem);
 	if (err != SIMPLEWEBP_NO_ERROR)
@@ -4496,10 +4498,7 @@ static simplewebp_error swebp__vp8l_decode_code_complex(
 		c = 0;
 
 		if (br->eos)
-		{
-			swebp__dealloc(simplewebp, lc.tree);
 			return SIMPLEWEBP_IO_ERROR;
-		}
 
 		switch (s)
 		{
@@ -4540,10 +4539,9 @@ static simplewebp_error swebp__vp8l_decode_code_complex(
 		}
 		
 		if (br->eos)
-		{
-			swebp__dealloc(simplewebp, lc.tree);
 			return SIMPLEWEBP_IO_ERROR;
-		}
+		if (s > (size - count))
+			return SIMPLEWEBP_CORRUPT_ERROR;
 
 		while (s--)
 			lengths[count++] = (simplewebp_u8) c;
