@@ -4648,6 +4648,7 @@ static simplewebp_error swebp__decode_vp8l_image(
 	struct swebp__pixel **dest
 )
 {
+	simplewebp_bool has_ccache;
 	simplewebp_u8 ccache_bits, entropy_bits;
 	struct swebp__pixel *color_cache, *entropy, *image;
 	struct swebp__vp8l_group *groups;
@@ -4670,13 +4671,20 @@ static simplewebp_error swebp__decode_vp8l_image(
 	}
 	image = *dest;
 
-	ccache_bits = swebp__vp8l_bitread_read(br, 1) ? swebp__vp8l_bitread_read(br, 4) : 0;
+	has_ccache = (simplewebp_bool) swebp__vp8l_bitread_read(br, 1);
 	if (br->eos)
 		return SIMPLEWEBP_IO_ERROR;
-	if (ccache_bits)
-	{
-		size_t ccache_bits_size = (1 << ccache_bits) * 4;
 
+	if (has_ccache)
+	{
+		size_t ccache_bits_size;
+		ccache_bits = (simplewebp_u8) swebp__vp8l_bitread_read(br, 4);
+		if (br->eos)
+			return SIMPLEWEBP_IO_ERROR;
+		if (ccache_bits < 1 || ccache_bits > 11)
+			return SIMPLEWEBP_CORRUPT_ERROR;
+
+		ccache_bits_size = (1 << ccache_bits) * 4;
 		color_cache = (struct swebp__pixel*) swebp__alloc(simplewebp, ccache_bits_size);
 		if (!color_cache)
 			return SIMPLEWEBP_ALLOC_ERROR;
