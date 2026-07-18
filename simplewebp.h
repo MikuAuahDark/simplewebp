@@ -4578,10 +4578,10 @@ static simplewebp_error swebp__vp8l_decode_code(
 {
 	if (swebp__vp8l_bitread_read(br, 1))
 	{
-		simplewebp_u16 symbol[2];
+		simplewebp_u8 symbol[2];
 		simplewebp_bool two_symbols = (simplewebp_bool) swebp__vp8l_bitread_read(br, 1);
-		symbol[0] = swebp__vp8l_bitread_read(br, 1 + swebp__vp8l_bitread_read(br, 1) * 7);
-		symbol[1] = two_symbols ? swebp__vp8l_bitread_read(br, 8) : 0;
+		symbol[0] = (simplewebp_u8) swebp__vp8l_bitread_read(br, 1 + swebp__vp8l_bitread_read(br, 1) * 7);
+		symbol[1] = two_symbols ? ((simplewebp_u8) swebp__vp8l_bitread_read(br, 8)) : 0;
 
 		if (br->eos)
 			return SIMPLEWEBP_IO_ERROR;
