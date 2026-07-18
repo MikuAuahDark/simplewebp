@@ -4673,6 +4673,7 @@ static simplewebp_error swebp__decode_vp8l_image(
 
 	dimensions = width * height;
 	color_cache = NULL;
+	ccache_bits = 0;
 	group_count = 1;
 	entropy_bits = 0;
 	entropy_stride = 0;
@@ -4821,6 +4822,12 @@ static simplewebp_error swebp__decode_vp8l_image(
 				length = swebp__vp8l_lendst(br, codeword - swebp__vp8l_literals_count);
 				distcode = swebp__vp8l_read_code(br, &g->code[4]);
 				distance = swebp__vp8l_lendst(br, distcode);
+
+				if (br->eos)
+				{
+					err = SIMPLEWEBP_IO_ERROR;
+					break;
+				}
 
 				if (distance < swebp__vp8l_offset_count)
 					offset = (ptrdiff_t) swebp__vp8l_offsets[distance][0]
