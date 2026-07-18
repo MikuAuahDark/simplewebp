@@ -4613,8 +4613,13 @@ static simplewebp_error swebp__vp8l_decode_group(
 
 static size_t swebp__hash_color(simplewebp_u8 bits, struct swebp__pixel c)
 {
-	size_t value = (c.a << 24) | (c.r << 16) | (c.g << 8) | c.b;
-	return ((0x1e35a7bd * value) & 0xFFFFFFFF) >> (32 - bits);
+	simplewebp_u32 r, g, b, a, value;
+	r = c.r;
+	g = c.g;
+	b = c.b;
+	a = c.a;
+	value = (a << 24) | (r << 16) | (g << 8) | b;
+	return ((0x1e35a7bdU * value) & 0xFFFFFFFFU) >> (32 - bits);
 }
 
 static void swebp__vp8l_put_cache(simplewebp_u8 bits, struct swebp__pixel *ccache, struct swebp__pixel color)
@@ -4669,9 +4674,13 @@ static simplewebp_error swebp__decode_vp8l_image(
 		return SIMPLEWEBP_IO_ERROR;
 	if (ccache_bits)
 	{
-		color_cache = (struct swebp__pixel*) swebp__alloc(simplewebp, (1 << ccache_bits) * 4);
+		size_t ccache_bits_size = (1 << ccache_bits) * 4;
+
+		color_cache = (struct swebp__pixel*) swebp__alloc(simplewebp, ccache_bits_size);
 		if (!color_cache)
 			return SIMPLEWEBP_ALLOC_ERROR;
+
+		memset(color_cache, 0, ccache_bits_size);
 	}
 
 	if (is_main)
@@ -4777,6 +4786,12 @@ static simplewebp_error swebp__decode_vp8l_image(
 				distcode = swebp__vp8l_read_code(br, &g->code[4]);
 				distance = swebp__vp8l_lendst(br, distcode);
 
+				if (br->eos)
+				{
+					err = SIMPLEWEBP_IO_ERROR;
+					break;
+				}
+
 				if (distance < swebp__vp8l_offset_count)
 					offset = swebp__vp8l_offsets[distance][0] + swebp__vp8l_offsets[distance][1] * width;
 				else
@@ -4795,6 +4810,12 @@ static simplewebp_error swebp__decode_vp8l_image(
 			{
 				*pixel = color_cache[codeword - swebp__vp8l_litlen_count];
 				i++;
+			}
+
+			if (br->eos)
+			{
+				err = SIMPLEWEBP_IO_ERROR;
+				break;
 			}
 		}
 	}
@@ -4943,10 +4964,10 @@ static struct swebp__pixel swebp__clamp_add_subtract_half(struct swebp__pixel a,
 
 static struct swebp__pixel swebp__apply_predictor(
 	simplewebp_u8 type,
-	struct swebp__pixel *l,
-	struct swebp__pixel *tl,
-	struct swebp__pixel *t,
-	struct swebp__pixel *tr
+	const struct swebp__pixel *l,
+	const struct swebp__pixel *tl,
+	const struct swebp__pixel *t,
+	const struct swebp__pixel *tr
 )
 {
 	const struct swebp__pixel black = {0, 0, 0, 255};
@@ -5000,30 +5021,48 @@ static void swebp__apply_predictor_transform(
 {
 	size_t x, y;
 	size_t tiles_per_row = swebp__subsample_size(width, bits);
+	const struct swebp__pixel black = {0, 0, 0, 255};
 
 	for (y = 0; y < height; y++)
 	{
 		for (x = 0; x < width; x++)
 		{
+			const struct swebp__pixel *l, *tl, *t, *tr;
 			struct swebp__pixel result;
 			simplewebp_u8 type = 0;
 
+			l = tl = t = tr = &black;
+
 			if (x > 0)
 			{
+				l = rgba - 1;
+
 				if (y > 0)
 				{
 					size_t tile_x = x >> bits;
 					size_t tile_y = y >> bits;
 					size_t tile_index = tile_y * tiles_per_row + tile_x;
 					type = predictor_data[tile_index].g;
+					tl = rgba - width - 1;
+					t = rgba - width;
+					tr = rgba - width + 1;
 				}
 				else
 					type = 1;
 			}
 			else
-				type = y > 0 ? 2 : 0;
+			{
+				if (y > 0)
+				{
+					type = 2;
+					t = rgba - width;
+					tr = rgba - width + 1;
+				}
+				else
+					type = 0;
+			}
 
-			result = swebp__apply_predictor(type, rgba - 1, rgba - (width + 1), rgba - width, rgba - (width - 1));
+			result = swebp__apply_predictor(type, l, tl, t, tr);
 			rgba->r += result.r;
 			rgba->g += result.g;
 			rgba->b += result.b;
