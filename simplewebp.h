@@ -5571,6 +5571,7 @@ simplewebp_error simplewebp_load_from_file(FILE *file, const simplewebp_allocato
 	simplewebp_input input;
 	simplewebp_error err;
 
+	*out = NULL;
 	err = simplewebp_input_from_file(file, &input);
 	if (err != SIMPLEWEBP_NO_ERROR)
 		return err;
@@ -5587,6 +5588,7 @@ simplewebp_error simplewebp_load_from_filename(const char *filename, const simpl
 	simplewebp_input input;
 	simplewebp_error err;
 
+	*out = NULL;
 	err = simplewebp_input_from_filename(filename, &input);
 	if (err != SIMPLEWEBP_NO_ERROR)
 		return err;
