@@ -4823,9 +4823,11 @@ static simplewebp_error swebp__decode_vp8l_image(
 				distance = swebp__vp8l_lendst(br, distcode);
 
 				if (distance < swebp__vp8l_offset_count)
-					offset = swebp__vp8l_offsets[distance][0] + swebp__vp8l_offsets[distance][1] * width;
+					offset = (ptrdiff_t) swebp__vp8l_offsets[distance][0]
+						+ (ptrdiff_t) swebp__vp8l_offsets[distance][1]
+						* (ptrdiff_t) width;
 				else
-					offset = distance - swebp__vp8l_offset_count + 1;
+					offset = (ptrdiff_t) (distance - swebp__vp8l_offset_count + 1);
 				offset = offset < 1 ? 1 : offset;
 
 				if ((size_t) offset > i || (length + 1) > (dimensions - i))
