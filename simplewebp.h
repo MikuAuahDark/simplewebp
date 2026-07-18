@@ -5286,7 +5286,10 @@ static simplewebp_error swebp__decode_lossless_bitstream_main(
 
 		ttype = swebp__vp8l_bitread_read(br, 2);
 		if (br->eos)
+		{
+			swebp__batch_free(simplewebp, (void **) filter_data, 4);
 			return SIMPLEWEBP_CORRUPT_ERROR;
+		}
 
 		switch (ttype)
 		{
@@ -5323,6 +5326,8 @@ static simplewebp_error swebp__decode_lossless_bitstream_main(
 		if (err != SIMPLEWEBP_NO_ERROR)
 		{
 			/* Error occured. Rollback. */
+			if (filter_out)
+				swebp__dealloc(simplewebp, filter_out);
 			swebp__batch_free(simplewebp, (void **) filter_data, 4);
 			return err;
 		}
