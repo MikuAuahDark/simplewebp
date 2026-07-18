@@ -4578,11 +4578,36 @@ static simplewebp_error swebp__vp8l_decode_code(
 {
 	if (swebp__vp8l_bitread_read(br, 1))
 	{
+		simplewebp_u16 symbol[2];
 		simplewebp_bool two_symbols = (simplewebp_bool) swebp__vp8l_bitread_read(br, 1);
+		symbol[0] = swebp__vp8l_bitread_read(br, 1 + swebp__vp8l_bitread_read(br, 1) * 7);
+		symbol[1] = two_symbols ? swebp__vp8l_bitread_read(br, 8) : 0;
+
+		if (br->eos)
+			return SIMPLEWEBP_IO_ERROR;
+		if (symbol[0] >= size || (two_symbols && symbol[1] >= size))
+			return SIMPLEWEBP_CORRUPT_ERROR;
+
+		if (two_symbols)
+		{
+			/* Reorder symbol if needed */
+			if (symbol[0] > symbol[1])
+			{
+				simplewebp_u16 tempsym = symbol[0];
+				symbol[0] = symbol[1];
+				symbol[1] = tempsym;
+			}
+			else if (symbol[0] == symbol[1])
+			{
+				two_symbols = 0;
+				symbol[1] = 0;
+			}
+		}
+
 		code->tree = NULL;
-		code->size = two_symbols + 1;
-		code->symbol[0] = swebp__vp8l_bitread_read(br, 1 + swebp__vp8l_bitread_read(br, 1) * 7);
-		code->symbol[1] = two_symbols ? swebp__vp8l_bitread_read(br, 8) : 0;
+		code->size = (simplewebp_u16) two_symbols + 1;
+		code->symbol[0] = symbol[0];
+		code->symbol[1] = symbol[1];
 		return br->eos ? SIMPLEWEBP_IO_ERROR : SIMPLEWEBP_NO_ERROR;
 	}
 	else
