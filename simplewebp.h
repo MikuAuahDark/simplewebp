@@ -4593,7 +4593,7 @@ static simplewebp_error swebp__vp8l_decode_code(
 			/* Reorder symbol if needed */
 			if (symbol[0] > symbol[1])
 			{
-				simplewebp_u16 tempsym = symbol[0];
+				simplewebp_u8 tempsym = symbol[0];
 				symbol[0] = symbol[1];
 				symbol[1] = tempsym;
 			}
