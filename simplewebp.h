@@ -1053,10 +1053,15 @@ simplewebp_error simplewebp_load(simplewebp_input *input, const simplewebp_alloc
 	}
 
 	/* Read "WEBP" */
-	if (!swebp__read2(4, temp, &riff_input) || memcmp(temp, "WEBP", 4) != 0)
+	if (!swebp__read2(4, temp, &riff_input))
 	{
 		simplewebp_close_input(&riff_input);
 		return SIMPLEWEBP_IO_ERROR;
+	}
+	else if (memcmp(temp, "WEBP", 4) != 0)
+	{
+		simplewebp_close_input(&riff_input);
+		return SIMPLEWEBP_NOT_WEBP_ERROR;
 	}
 
 	/* Allocate simplewebp structure */
@@ -3375,7 +3380,7 @@ static simplewebp_u8 *swebp__vp8_alloc_memory(struct swebp__vp8 *vp8d, simpleweb
 	mb_data_size = mb_w * sizeof(*vp8d->mb_data);
 	cache_height = (16 + swebp__fextrarows[vp8d->filter_type]) * 3 / 2;
 	cache_size = top_size * cache_height;
-	alpha_size = vp8d->picture_header.width * vp8d->picture_header.width;
+	alpha_size = vp8d->picture_header.width * vp8d->picture_header.height;
 
 	needed = intra_pred_mode_size
 		+ top_size
