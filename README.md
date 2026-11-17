@@ -34,7 +34,7 @@ A CMake project is also provided for convenience. You're not required to use it.
 Quick Example
 -----
 
-The "Feature" sections says 7 lines of code right?
+The "Feature" sections says 7 lines of code right? Please note that error handling is omitted here for sake of 7 loc demonstration.
 
 ```c
 size_t width, height;
