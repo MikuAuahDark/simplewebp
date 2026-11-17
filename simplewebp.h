@@ -4248,12 +4248,12 @@ static simplewebp_error swebp__vp8_parse_frame(struct swebp__vp8 *vp8d, struct s
 
 static simplewebp_error swebp__decode_lossy(simplewebp *simplewebp, struct swebp__yuvdst *destination, void *settings)
 {
-	(void)settings;
 	simplewebp_input input;
 	size_t vp8size;
 	simplewebp_u8 *vp8buffer, *decoder_mem;
 	struct swebp__vp8 *vp8d;
 	simplewebp_error err;
+	(void)settings;
 
 	vp8d = &simplewebp->decoder.vp8;
 	input = simplewebp->vp8_input;
@@ -4996,11 +4996,11 @@ static simplewebp_error swebp__decode_color_index_transform(
 	struct swebp__pixel **dest
 )
 {
-	(void)width;
-	(void)height;
 	simplewebp_u32 color_count, i;
 	simplewebp_error err;
 	struct swebp__pixel *pixel_data;
+	(void)width;
+	(void)height;
 
 	color_count = swebp__vp8l_bitread_read(br, 8);
 	*index_size_out = (simplewebp_u8) color_count++;
