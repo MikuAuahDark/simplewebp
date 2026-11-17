@@ -15,7 +15,7 @@ extern "C" {
 
 #include <stddef.h>
 #include <stdlib.h>
-#if defined(__cplusplus) || (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901)
+#if (defined(__cplusplus) && !defined(_MSC_VER)) || (defined(__cplusplus) && defined(_MSC_VER) && _MSC_VER >= 1600) || (defined(__STDC_VERSION__) && __STDC_VERSION__ >= 199901)
 #include <stdint.h>
 
 typedef uint8_t simplewebp_u8;
@@ -224,6 +224,15 @@ simplewebp_bool simplewebp_is_lossless(simplewebp *simplewebp);
  * @return Error codes. 
  */
 simplewebp_error simplewebp_decode(simplewebp *simplewebp, void *buffer, void *settings);
+
+/**
+ * @brief Decode WebP image to raw RGB24 pixels data (3 bytes per pixel, alpha discarded).
+ * @param simplewebp `simplewebp` opaque handle.
+ * @param buffer Block of memory with size of `width * height * 3` bytes. This is where the RGB is stored.
+ * @param settings Ignored. Set this to `NULL`.
+ * @return Error codes.
+ */
+simplewebp_error simplewebp_decode24(simplewebp *simplewebp, void *buffer, void *settings);
 
 /**
  * @brief Decode WebP image to raw planar YUVA420 pixels data. Can only be used on lossy WebP image.
@@ -3890,6 +3899,31 @@ static void swebp__yuva2rgba(
 	}
 }
 
+static void swebp__yuva2rgb(
+	const simplewebp_u8 *yp,
+	const struct swebp__chroma *uv,
+	simplewebp_u8 *rgb,
+	size_t w,
+	size_t h
+)
+{
+	size_t y, x, uvw;
+	struct swebp__pixel pixel;
+
+	uvw = ((w + 1) / 2) * 2;
+
+	for (y = 0; y < h; y++)
+	{
+		for (x = 0; x < w; x++)
+		{
+			swebp__yuv2rgb_plain(yp[y * w + x], uv[y * uvw + x].u, uv[y * uvw + x].v, &pixel);
+			rgb[(y * w + x) * 3 + 0] = pixel.r;
+			rgb[(y * w + x) * 3 + 1] = pixel.g;
+			rgb[(y * w + x) * 3 + 2] = pixel.b;
+		}
+	}
+}
+
 static simplewebp_error swebp__vp8_process_row(struct swebp__vp8 *vp8d, struct swebp__yuvdst *destination)
 {
 	simplewebp_i32 filter_row;
@@ -5386,6 +5420,86 @@ simplewebp_error simplewebp_decode(simplewebp *simplewebp, void *buffer, void *s
 			for (i = 0; i < w * h; i++)
 				rgba[i].a = 255;
 		}
+	}
+
+	return err;
+}
+
+simplewebp_error simplewebp_decode24(simplewebp *simplewebp, void *buffer, void *settings)
+{
+	simplewebp_error err = SIMPLEWEBP_NO_ERROR;
+
+	if (simplewebp->webp_type == 0)
+	{
+		/* Lossy VP8: decode the YUVA planes and write RGB24 straight out.
+		   No full-frame RGBA buffer is needed. */
+		struct swebp__yuvdst dest;
+		struct swebp__chroma *upscaled;
+		simplewebp_u8 *mem, *orig_mem;
+		size_t needed, yw, yh, uvw, uvh;
+
+		yw = simplewebp->decoder.vp8.picture_header.width;
+		yh = simplewebp->decoder.vp8.picture_header.height;
+		uvw = (yw + 1) / 2;
+		uvh = (yh + 1) / 2;
+		needed = ((yw * yh) + (uvw * uvh)) * 2;
+		needed += uvw * uvh * 4 * sizeof(struct swebp__chroma);
+
+		mem = orig_mem = (simplewebp_u8 *) swebp__alloc(simplewebp, needed);
+		if (mem == NULL)
+			return SIMPLEWEBP_ALLOC_ERROR;
+
+		dest.y = mem;
+		mem += yw * yh;
+		dest.a = mem;
+		mem += yw * yh;
+		dest.u = mem;
+		mem += uvw * uvh;
+		dest.v = mem;
+		mem += uvw * uvh;
+		upscaled = (struct swebp__chroma*) mem;
+
+		err = swebp__decode_lossy(simplewebp, &dest, settings);
+		if (err != SIMPLEWEBP_NO_ERROR)
+		{
+			swebp__dealloc(simplewebp, orig_mem);
+			return err;
+		}
+
+		swebp__upsample_chroma(dest.u, dest.v, upscaled, uvw, uvh);
+		swebp__yuva2rgb(dest.y, upscaled, (simplewebp_u8*) buffer, yw, yh);
+		swebp__dealloc(simplewebp, orig_mem);
+	}
+	else
+	{
+		/* Lossless VP8L works on 4-byte pixels internally: its color cache
+		   hash and predictors use the alpha byte, so a width*height*4
+		   working buffer is unavoidable on this path. */
+		simplewebp_error decode_err;
+		size_t width, height, i, count;
+		struct swebp__pixel *rgba;
+		simplewebp_u8 *dst;
+
+		simplewebp_get_dimensions(simplewebp, &width, &height);
+		rgba = (struct swebp__pixel*) swebp__alloc(simplewebp, width * height * sizeof(struct swebp__pixel));
+		if (rgba == NULL)
+			return SIMPLEWEBP_ALLOC_ERROR;
+
+		decode_err = simplewebp_decode(simplewebp, rgba, settings);
+		if (decode_err == SIMPLEWEBP_NO_ERROR)
+		{
+			dst = (simplewebp_u8*) buffer;
+			count = width * height;
+			for (i = 0; i < count; i++)
+			{
+				dst[i * 3 + 0] = rgba[i].r;
+				dst[i * 3 + 1] = rgba[i].g;
+				dst[i * 3 + 2] = rgba[i].b;
+			}
+		}
+
+		swebp__dealloc(simplewebp, rgba);
+		err = decode_err;
 	}
 
 	return err;
